@@ -1,0 +1,16 @@
+[package]
+name = "poc"
+version = "0.1.0"
+authors = ["Andrey Tkachenko <andreytkachenko64@gmail.com>"]
+edition = "2018"
+build = "build.rs"
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+matrixmultiply = "0.2.2"
+openblas-src = {version = "0.7.0", features = ["system"]}
+blas = "0.20.0"
+cblas = "0.2.0"
+mnist = "0.4.0"
+rand = "0.7.0"
+rand_distr = "0.2.1"
