@@ -15,7 +15,7 @@ pub mod losses;
 pub mod tensor;
 
 use self::backends::{Native, NativeTensorF32};
-use self::optimizers::Adam;
+use self::optimizers::*;
 use self::layers::*;
 use self::layer::*;
 use crate::backend::{Backend, BackendScale};
@@ -59,16 +59,16 @@ fn main() {
 
     let backend = Native;
     // let optimizer = Sgd::new(0.01, 0.1, false);
-    let optimizer = Adam::default();
-    let hidden_count = 64;
+    let optimizer = RMSProp::default();
+    let hidden_count = 16;
     
-    let mut linear_1: LayerImpl<_, _, _, Linear<_, _, &Adam<_, _>>> = LayerImpl::new((784, ).into(), &backend, &optimizer, LinearConfig {
+    let mut linear_1: LayerImpl<_, _, _, Linear<_, _, &RMSProp<_, _>>> = LayerImpl::new((784, ).into(), &backend, &optimizer, LinearConfig {
         outputs: hidden_count
     });
 
     let mut sigmoid_1: LayerImpl<_, _, _, Sigmoid<_, _>> = LayerImpl::new((hidden_count, ).into(), &backend, &optimizer, SigmoidConfig);
 
-    let mut linear_2: LayerImpl<_, _, _, Linear<_, _, &Adam<_, _>>> = LayerImpl::new((hidden_count, ).into(), &backend, &optimizer, LinearConfig {
+    let mut linear_2: LayerImpl<_, _, _, Linear<_, _, &RMSProp<_, _>>> = LayerImpl::new((hidden_count, ).into(), &backend, &optimizer, LinearConfig {
         outputs: 10
     });
 
@@ -114,7 +114,7 @@ fn main() {
     let mut test_linear_2 = LayerContext::new();
     let mut test_sigmoid_2 = LayerContext::new();
 
-    for epoch in 1 ..= 80 {
+    for epoch in 1 ..= 100 {
         println!("epoch {}", epoch);
 
         for step in 0 .. (60000 / BATCH_SIZE) {
