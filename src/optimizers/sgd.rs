@@ -42,9 +42,9 @@ impl<N, B: Backend<N> + BackendScale<N> + BackendAxpy<N> + BackendAdd<N>> Optimi
     type Context = SgdContext<N, B>;
 
     fn update_gradients(&self, backend: &B, ctx: &mut Self::Context, params: &mut B::Tensor, grads: &B::Tensor) {
-        backend.axpy(params, backend.scalar_f32(-self.learning_rate), grads);
+        // backend.axpy(params, backend.scalar_f32(-self.learning_rate), grads);
 
-        /*// m = momentum * m - lr * grads
+        // m = momentum * m - lr * grads
         backend.scale(&mut ctx.moments, backend.scalar_f32(self.momentum));
         backend.axpy(&mut ctx.moments, backend.scalar_f32(-self.learning_rate), grads);
 
@@ -55,6 +55,6 @@ impl<N, B: Backend<N> + BackendScale<N> + BackendAxpy<N> + BackendAdd<N>> Optimi
         } else {
             // p += m
             backend.add(params, &ctx.moments);
-        }*/
+        }
     }
 }

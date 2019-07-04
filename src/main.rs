@@ -32,15 +32,15 @@ fn calc_accuracy<N, B: Backend<N>>(back: &B, pred: &B::Tensor, targets: &[u8]) -
     let mut total = 0;
 
     for (x, &y) in vec.chunks(10).zip(targets.iter()) {
-        let mut max = 0;
-        let mut max_value = 0.0;
         let x = &x[0 .. 10];
 
-        for idx in 0 .. 10 {
-            let i = x[idx];
+        let mut max = 0;
+        let mut max_value = 0.0;
+
+        for (idx, &i) in x.iter().enumerate() {
             if i > max_value {
                 max_value = i;
-                max = (idx + 1) as u8;
+                max = idx as u8;
             }
         }
 
@@ -55,17 +55,19 @@ fn calc_accuracy<N, B: Backend<N>>(back: &B, pred: &B::Tensor, targets: &[u8]) -
 }
 
 fn main() {
-    const BATCH_SIZE: usize = 10;
+    const BATCH_SIZE: usize = 128;
+
     let backend = Native;
-    let optimizer = Sgd::new(0.01, 0.0, false);
+    let optimizer = Sgd::new(0.01, 0.1, false);
+    let hidden_count = 64;
     
     let mut linear_1: LayerImpl<_, _, _, Linear<_, _, &Sgd<_, _>>> = LayerImpl::new((784, ).into(), &backend, &optimizer, LinearConfig {
-        outputs: 16
+        outputs: hidden_count
     });
 
-    let mut sigmoid_1: LayerImpl<_, _, _, Sigmoid<_, _>> = LayerImpl::new((16, ).into(), &backend, &optimizer, SigmoidConfig);
+    let mut sigmoid_1: LayerImpl<_, _, _, Sigmoid<_, _>> = LayerImpl::new((hidden_count, ).into(), &backend, &optimizer, SigmoidConfig);
 
-    let mut linear_2: LayerImpl<_, _, _, Linear<_, _, &Sgd<_, _>>> = LayerImpl::new((16, ).into(), &backend, &optimizer, LinearConfig {
+    let mut linear_2: LayerImpl<_, _, _, Linear<_, _, &Sgd<_, _>>> = LayerImpl::new((hidden_count, ).into(), &backend, &optimizer, LinearConfig {
         outputs: 10
     });
 
@@ -78,12 +80,42 @@ fn main() {
         .label_format_digit()
         .finalize();
 
+    let mut inputs = NativeTensorF32::new((BATCH_SIZE as u32, 784));
     let mut targets = NativeTensorF32::new((BATCH_SIZE as u32, 10));
     let mut deltas = NativeTensorF32::new((BATCH_SIZE as u32, 10));
-    let mut inputs = NativeTensorF32::new((BATCH_SIZE as u32, 784));
 
-    for epoch in 1 ..= 10 {
+    let test_count = 1000;
+
+    let mut inputs0 = NativeTensorF32::new((test_count as u32, 784));
+    let mut targets0 = NativeTensorF32::new((test_count as u32, 10));
+
+    let mut tmp = vec![0u8; 10 * test_count];
+
+    let inputs0_slice = &tst_img[0..test_count * 784];
+    let targets0_slice = &tst_lbl[0..test_count];
+
+    backend.load_tensor_u8(&mut inputs0, inputs0_slice);
+    backend.scale(&mut inputs0, 1.0 / 255.0);
+
+    for (idx, &t) in targets0_slice.iter().enumerate() {
+        tmp[idx * 10 + t as usize] = 1;
+    }
+
+    backend.load_tensor_u8(&mut targets0, &tmp[..]);
+
+    let mut train_linear_1 = LayerContext::new();
+    let mut train_sigmoid_1 = LayerContext::new();
+    let mut train_linear_2 = LayerContext::new();
+    let mut train_sigmoid_2 = LayerContext::new();
+    
+    let mut test_linear_1 = LayerContext::new();
+    let mut test_sigmoid_1 = LayerContext::new();
+    let mut test_linear_2 = LayerContext::new();
+    let mut test_sigmoid_2 = LayerContext::new();
+
+    for epoch in 1 ..= 80 {
         println!("epoch {}", epoch);
+
         for step in 0 .. (60000 / BATCH_SIZE) {
             let offset = step * BATCH_SIZE;
             let mut tmp = [0u8; 10 * BATCH_SIZE];
@@ -101,33 +133,34 @@ fn main() {
             backend.load_tensor_u8(&mut targets, &tmp[..]);
             
             // forward
-            linear_1.forward(&inputs);
-            sigmoid_1.forward(linear_1.outputs());
-            linear_2.forward(sigmoid_1.outputs());
-            sigmoid_2.forward(linear_2.outputs());
-
-            println!("Accuracy {}", calc_accuracy(&backend, sigmoid_2.outputs(), targets_slice));
+            linear_1.forward(&inputs, &mut train_linear_1);
+            sigmoid_1.forward(&train_linear_1.outputs, &mut train_sigmoid_1);
+            linear_2.forward(&train_sigmoid_1.outputs, &mut train_linear_2);
+            sigmoid_2.forward(&train_linear_2.outputs, &mut train_sigmoid_2);
 
             // loss
-            loss.derivative(&backend, &mut deltas, sigmoid_2.outputs(), &targets);
+            loss.derivative(&backend, &mut deltas, &train_sigmoid_2.outputs, &targets);
 
             // backward
-            sigmoid_2.backward(&deltas);
-            linear_2.backward(sigmoid_2.deltas());
-            sigmoid_1.backward(linear_2.deltas());
-            // linear_1.backward(sigmoid_1.deltas());
+            sigmoid_2.backward(&deltas, &mut train_sigmoid_2);
+            linear_2.backward(&train_sigmoid_2.deltas, &mut train_linear_2);
+            sigmoid_1.backward(&train_linear_2.deltas, &mut train_sigmoid_1);
+            // linear_1.backward(&train_sigmoid_1.deltas, &mut train_linear_1);
 
             // update
             
-            linear_1.update(&inputs, sigmoid_1.deltas());
-            // sigmoid_1.update(linear_1.outputs(), linear_2.deltas());
-            // backend.print_tensor(sigmoid_2.deltas());
-            // std::thread::sleep(std::time::Duration::from_secs(5));
-            linear_2.update(sigmoid_1.outputs(), sigmoid_2.deltas());
-            // sigmoid_2.update(linear_2.outputs(), &deltas);
-
-            // std::thread::sleep(std::time::Duration::from_secs(10));
+            linear_1.update(&inputs, &train_sigmoid_1.deltas, &mut train_linear_1);
+            sigmoid_1.update(train_linear_1.outputs(), train_linear_2.deltas(), &mut train_sigmoid_1);
+            linear_2.update(&train_sigmoid_1.outputs, &train_sigmoid_2.deltas, &mut train_linear_2);
+            sigmoid_2.update(train_linear_2.outputs(), &deltas, &mut train_sigmoid_2);
         }
+
+        linear_1.forward(&inputs0, &mut test_linear_1);
+        sigmoid_1.forward(test_linear_1.outputs(), &mut test_sigmoid_1);
+        linear_2.forward(test_sigmoid_1.outputs(), &mut test_linear_2);
+        sigmoid_2.forward(test_linear_2.outputs(), &mut test_sigmoid_2);
+
+        println!("Accuracy {}", calc_accuracy(&backend, &test_sigmoid_2.outputs, targets0_slice));
     }
 }
 

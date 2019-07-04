@@ -177,6 +177,15 @@ impl TensorShape {
     }
 }
 
+impl From<()> for TensorShape {
+    fn from(x: ()) -> Self {
+        TensorShape {
+            shape: [0, 0, 0, 0],
+            dims: 0,
+        }
+    }
+}
+
 impl From<(u32, )> for TensorShape {
     fn from(x: (u32, )) -> Self {
         TensorShape {
