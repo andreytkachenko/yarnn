@@ -148,6 +148,17 @@ impl <'a, N, T: BackendAxpy<N>> BackendAxpy<N> for &'a T {
     }
 }
 
+pub trait BackendAxpys<N>: Backend<N> {
+    fn axpys(&self, dst: &mut Self::Tensor, scale: N, a: &Self::Tensor);
+}
+
+impl <'a, N, T: BackendAxpys<N>> BackendAxpys<N> for &'a T {
+    #[inline]
+    fn axpys(&self, dst: &mut Self::Tensor, scale: N, a: &Self::Tensor) {
+        (**self).axpys(dst, scale, a)
+    }
+}
+
 pub trait BackendAdd<N>: Backend<N> {
     fn add(&self, dst: &mut Self::Tensor, a: &Self::Tensor);
 }
@@ -178,5 +189,28 @@ impl <'a, N, T: BackendMul<N>> BackendMul<N> for &'a T {
     #[inline]
     fn mul(&self, dst: &mut Self::Tensor, a: &Self::Tensor) {
         (**self).mul(dst, a)
+    }
+}
+
+
+pub trait BackendMaximum<N>: Backend<N> {
+    fn maximum(&self, dst: &mut Self::Tensor, a: &Self::Tensor);
+}
+
+impl <'a, N, T: BackendMaximum<N>> BackendMaximum<N> for &'a T {
+    #[inline]
+    fn maximum(&self, dst: &mut Self::Tensor, a: &Self::Tensor) {
+        (**self).maximum(dst, a)
+    }
+}
+
+pub trait BackendAdam<N>: BackendScale<N> + BackendAxpy<N> + BackendAxpys<N> + BackendMaximum<N> {
+    fn adam_p(&self, dst: &mut Self::Tensor, lr: N, moms: &Self::Tensor, vels: &Self::Tensor, eps: N);
+}
+
+impl <'a, N, T: BackendAdam<N>> BackendAdam<N> for &'a T {
+    #[inline]
+    fn adam_p(&self, dst: &mut Self::Tensor, lr: N, moms: &Self::Tensor, vels: &Self::Tensor, eps: N) {
+        (**self).adam_p(dst, lr, moms, vels, eps)
     }
 }

@@ -73,7 +73,7 @@ impl <N, B, O> Optimizable<N, B, O> for Linear<N, B, O>
     }
 
     fn optimize(&mut self, backend: &B, optimizer: &O) {
-        optimizer.update_gradients(backend, &mut self.weights.ctx, &mut self.weights.params, &self.weights.grads);
-        // optimizer.update_gradients(backend, &mut self.biases.ctx, &mut self.biases.params, &self.biases.grads);
+        optimizer.update_params(backend, &mut self.weights.ctx, &mut self.weights.params, &self.weights.grads);
+        // optimizer.update_params(backend, &mut self.biases.ctx, &mut self.biases.params, &self.biases.grads);
     }
 }

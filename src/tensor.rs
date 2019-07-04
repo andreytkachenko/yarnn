@@ -55,7 +55,7 @@ impl fmt::Display for TensorShape {
                 write!(f, ", ")?;
             }
 
-            write!(f, "{}", self.shape[i]);
+            write!(f, "{}", self.shape[i])?;
         }
         write!(f, ")")?;
 
@@ -178,7 +178,7 @@ impl TensorShape {
 }
 
 impl From<()> for TensorShape {
-    fn from(x: ()) -> Self {
+    fn from(_: ()) -> Self {
         TensorShape {
             shape: [0, 0, 0, 0],
             dims: 0,

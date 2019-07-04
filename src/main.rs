@@ -15,7 +15,7 @@ pub mod losses;
 pub mod tensor;
 
 use self::backends::{Native, NativeTensorF32};
-use self::optimizers::Sgd;
+use self::optimizers::Adam;
 use self::layers::*;
 use self::layer::*;
 use crate::backend::{Backend, BackendScale};
@@ -58,16 +58,17 @@ fn main() {
     const BATCH_SIZE: usize = 128;
 
     let backend = Native;
-    let optimizer = Sgd::new(0.01, 0.1, false);
+    // let optimizer = Sgd::new(0.01, 0.1, false);
+    let optimizer = Adam::default();
     let hidden_count = 64;
     
-    let mut linear_1: LayerImpl<_, _, _, Linear<_, _, &Sgd<_, _>>> = LayerImpl::new((784, ).into(), &backend, &optimizer, LinearConfig {
+    let mut linear_1: LayerImpl<_, _, _, Linear<_, _, &Adam<_, _>>> = LayerImpl::new((784, ).into(), &backend, &optimizer, LinearConfig {
         outputs: hidden_count
     });
 
     let mut sigmoid_1: LayerImpl<_, _, _, Sigmoid<_, _>> = LayerImpl::new((hidden_count, ).into(), &backend, &optimizer, SigmoidConfig);
 
-    let mut linear_2: LayerImpl<_, _, _, Linear<_, _, &Sgd<_, _>>> = LayerImpl::new((hidden_count, ).into(), &backend, &optimizer, LinearConfig {
+    let mut linear_2: LayerImpl<_, _, _, Linear<_, _, &Adam<_, _>>> = LayerImpl::new((hidden_count, ).into(), &backend, &optimizer, LinearConfig {
         outputs: 10
     });
 

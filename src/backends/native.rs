@@ -60,13 +60,13 @@ impl Native {
     fn fmt_tensor(&self, t: &NativeTensorF32, f: &mut String) -> fmt::Result {
         let strides = t.shape.default_strides();
         let last_idx = strides.dims - 1;
-        writeln!(f, "default stridses {} {}", t.shape.default_strides(), last_idx);
+        writeln!(f, "default stridses {} {}", t.shape.default_strides(), last_idx)?;
         write!(f, "Tensor(shape={}, data=[", t.shape)?;
 
         for (idx, val) in t.read().iter().enumerate() {
-            let mut is_first = idx == 0;
+            let is_first = idx == 0;
             let mut need_nl = false;
-            let mut padding = 2;
+            let padding = 2;
 
             for (sidx, s) in strides.iter().enumerate() {
                 if sidx != last_idx && idx % s as usize == 0 {
@@ -148,7 +148,7 @@ impl Backend<f32> for Native {
 
     fn print_tensor(&self, t: &Self::Tensor) {
         let mut s = String::new();
-        self.fmt_tensor(t, &mut s);
+        self.fmt_tensor(t, &mut s).unwrap();
         println!("{}", s);
     } 
 }
@@ -351,6 +351,21 @@ impl BackendAxpy<f32> for Native {
     }
 }
 
+impl BackendAxpys<f32> for Native {
+    fn axpys(&self, dst: &mut Self::Tensor, scale: f32, a: &Self::Tensor) {
+        let dst_size = dst.shape().size();
+
+        assert!(a.shape() == dst.shape());
+
+        let a_s = &a.read()[0 .. dst_size];
+        let dst_s = &mut dst.write()[0 .. dst_size];
+
+        for i in 0 .. dst_size {
+            dst_s[i] += scale * a_s[i] * a_s[i];
+        }
+    }
+}
+
 impl BackendAdd<f32> for Native {
     fn add(&self, dst: &mut Self::Tensor, a: &Self::Tensor) {
         let dst_size = dst.shape().size();
@@ -397,6 +412,39 @@ impl BackendMul<f32> for Native {
 
         for i in 0 .. dst_size {
             dst_s[i] *= a_s[i];
+        }
+    }
+}
+
+impl BackendMaximum<f32> for Native {
+    fn maximum(&self, dst: &mut Self::Tensor, a: &Self::Tensor) {
+        let dst_size = dst.shape().size();
+
+        assert!(a.shape() == dst.shape());
+
+        let a_s = &a.read()[0 .. dst_size];
+        let dst_s = &mut dst.write()[0 .. dst_size];
+
+        for i in 0 .. dst_size {
+            dst_s[i] = f32::max(a_s[i], dst_s[i]);
+        }
+    }
+}
+
+
+impl BackendAdam<f32> for Native {
+    fn adam_p(&self, dst: &mut Self::Tensor, lr: f32, moms: &Self::Tensor, vels: &Self::Tensor, eps: f32) {
+        let dst_size = dst.shape().size();
+
+        assert!(moms.shape() == dst.shape());
+        assert!(vels.shape() == dst.shape());
+
+        let moms_s = &moms.read()[0 .. dst_size];
+        let vels_s = &vels.read()[0 .. dst_size];
+        let dst_s = &mut dst.write()[0 .. dst_size];
+
+        for i in 0 .. dst_size {
+            dst_s[i] += lr * moms_s[i] / (vels_s[i].sqrt() + eps)
         }
     }
 }
