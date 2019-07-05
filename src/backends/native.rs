@@ -251,17 +251,58 @@ impl BackendSigmoid<f32> for Native {
         }
     }
 
-    fn sigmoid_grad(&self, dst: &mut Self::Tensor, z: &Self::Tensor) {
+    fn sigmoid_grad(&self, dst: &mut Self::Tensor, z: &Self::Tensor, d: &Self::Tensor) {
         let dst_size = dst.shape().size();
-        let z_size = z.shape().size();
 
-        assert_eq!(dst_size, z_size);
+        assert!(dst.shape() == z.shape());
+        assert!(dst.shape() == d.shape());
 
         let z_s = &z.read()[0 .. dst_size];
+        let d_s = &d.read()[0 .. dst_size];
         let dst_s = &mut dst.write()[0 .. dst_size];
 
         for i in 0 .. dst_size {
-            dst_s[i] = z_s[i] * (1.0 - z_s[i]);
+            dst_s[i] = (z_s[i] * (1.0 - z_s[i])) * d_s[i];
+        }
+    }
+}
+
+impl BackendReLu<f32> for Native {
+    fn relu(&self, dst: &mut Self::Tensor, data: &Self::Tensor) {
+        let dst_size = dst.shape().size();
+
+        assert!(dst.shape() == data.shape());
+
+        let data_s = &data.read()[0 .. dst_size];
+        let dst_s = &mut dst.write()[0 .. dst_size];
+
+        for i in 0 .. dst_size {
+            let val = if data_s[i] > 0.0 {
+                data_s[i]
+            } else {
+                0.0
+            };
+
+            dst_s[i] = val;
+        }
+    }
+
+    fn relu_grad(&self, dst: &mut Self::Tensor, z: &Self::Tensor, d: &Self::Tensor) {
+        let dst_size = dst.shape().size();
+
+        assert!(dst.shape() == z.shape());
+        assert!(dst.shape() == d.shape());
+
+        let z_s = &z.read()[0 .. dst_size];
+        let d_s = &d.read()[0 .. dst_size];
+        let dst_s = &mut dst.write()[0 .. dst_size];
+
+        for i in 0 .. dst_size {
+            dst_s[i] = if z_s[i] > 0.0 {
+                d_s[i]
+            } else {
+                0.0
+            };
         }
     }
 }

@@ -94,7 +94,7 @@ impl <'a, N, T: BackendBias<N>> BackendBias<N> for &'a T {
 
 pub trait BackendSigmoid<N>: Backend<N> {
     fn sigmoid(&self, dst: &mut Self::Tensor, data: &Self::Tensor);
-    fn sigmoid_grad(&self, dst: &mut Self::Tensor, z: &Self::Tensor);
+    fn sigmoid_grad(&self, dst: &mut Self::Tensor, z: &Self::Tensor, d: &Self::Tensor);
 }
 
 impl <'a, N, T: BackendSigmoid<N>> BackendSigmoid<N> for &'a T {
@@ -104,8 +104,26 @@ impl <'a, N, T: BackendSigmoid<N>> BackendSigmoid<N> for &'a T {
     }
 
     #[inline]
-    fn sigmoid_grad(&self, dst: &mut Self::Tensor, z: &Self::Tensor) {
-        (**self).sigmoid_grad(dst, z)
+    fn sigmoid_grad(&self, dst: &mut Self::Tensor, z: &Self::Tensor, d: &Self::Tensor) {
+        (**self).sigmoid_grad(dst, z, d)
+    }
+}
+
+
+pub trait BackendReLu<N>: Backend<N> {
+    fn relu(&self, dst: &mut Self::Tensor, data: &Self::Tensor);
+    fn relu_grad(&self, dst: &mut Self::Tensor, z: &Self::Tensor, d: &Self::Tensor);
+}
+
+impl <'a, N, T: BackendReLu<N>> BackendReLu<N> for &'a T {
+    #[inline]
+    fn relu(&self, dst: &mut Self::Tensor, data: &Self::Tensor) {
+        (**self).relu(dst, data)
+    }
+
+    #[inline]
+    fn relu_grad(&self, dst: &mut Self::Tensor, z: &Self::Tensor, d: &Self::Tensor) {
+        (**self).relu_grad(dst, z, d)
     }
 }
 
