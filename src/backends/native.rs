@@ -232,7 +232,7 @@ impl BackendGemm<f32> for Native {
         }
     }
 
-    fn matmul_tt(&self, dst: &mut Self::Tensor, a: &Self::Tensor, b: &Self::Tensor) {
+    fn matmul_tt(&self, _dst: &mut Self::Tensor, _a: &Self::Tensor, _b: &Self::Tensor) {
         unimplemented!();
     }
 }
@@ -308,22 +308,12 @@ impl BackendReLu<f32> for Native {
 }
 
 impl BackendBias<f32> for Native {
-    fn bias_add(&self, dst: &mut Self::Tensor, bias: &Self::Tensor) {
-        // let bias_size = data.shape().size();
-        // let dst_size = dst.shape().size();
-
-        // assert_eq!(data_size, dst_size);
-
-        // let data_s = &data.read()[0 .. data_size];
-        // let dst_s = &mut dst.write()[0 .. dst_size];
-
-        // for i in 0 .. data_size {
-        //     dst_s[i] = 1.0 / (1.0 + (-data_s[i]).exp())
-        // }
+    fn bias_add(&self, _dst: &mut Self::Tensor, _bias: &Self::Tensor) {
+        unimplemented!()
     }
     
-    fn bias_grad(&self, bias: &mut Self::Tensor, inputs: &Self::Tensor) {
-
+    fn bias_grad(&self, _bias: &mut Self::Tensor, _inputs: &Self::Tensor) {
+        unimplemented!()
     }
 }
 
@@ -338,6 +328,21 @@ impl BackendScale<f32> for Native {
         }
     }
 }
+
+// impl BackendScale<f32> for Native {
+//     fn scale(&self, dst: &mut Self::Tensor, scale: f32) {
+//         let dst_size = dst.shape().size();
+
+//         unsafe {
+//             blas::sscal(
+//                 dst_size as i32,
+//                 scale,
+//                 dst.write(),
+//                 1
+//             );
+//         }
+//     }
+// }
 
 impl BackendMse<f32> for Native {
     fn scaled_square_diff(&self, dst: &mut Self::Tensor, a: &Self::Tensor, b: &Self::Tensor, scale: f32) {
@@ -377,17 +382,36 @@ impl BackendMse<f32> for Native {
     }
 }
 
+// impl BackendAxpy<f32> for Native {
+//     default fn axpy(&self, dst: &mut Self::Tensor, scale: f32, a: &Self::Tensor) {
+//         let dst_size = dst.shape().size();
+
+//         assert!(a.shape() == dst.shape());
+
+//         let a_s = &a.read()[0 .. dst_size];
+//         let dst_s = &mut dst.write()[0 .. dst_size];
+
+//         for i in 0 .. dst_size {
+//             dst_s[i] += scale * a_s[i];
+//         }
+//     }
+// }
+
 impl BackendAxpy<f32> for Native {
-    fn axpy(&self, dst: &mut Self::Tensor, scale: f32, a: &Self::Tensor) {
+    fn axpy(&self, dst: &mut Self::Tensor, scale: f32, x: &Self::Tensor) {
         let dst_size = dst.shape().size();
 
-        assert!(a.shape() == dst.shape());
+        assert!(x.shape() == dst.shape());
 
-        let a_s = &a.read()[0 .. dst_size];
-        let dst_s = &mut dst.write()[0 .. dst_size];
-
-        for i in 0 .. dst_size {
-            dst_s[i] += scale * a_s[i];
+        unsafe {
+            blas::saxpy(
+                dst_size as i32,
+                scale,
+                x.read(),
+                1,
+                dst.write(),
+                1
+            );
         }
     }
 }

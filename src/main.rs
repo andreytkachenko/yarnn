@@ -1,4 +1,5 @@
 #![feature(specialization)]
+#![feature(core_intrinsics)]
 
 pub mod layer;
 pub mod layers;
@@ -13,6 +14,7 @@ pub mod loss;
 pub mod losses;
 
 pub mod tensor;
+pub mod params;
 
 use self::backends::{Native, NativeTensorF32};
 use self::optimizers::*;
@@ -23,6 +25,145 @@ use self::tensor::Tensor;
 use self::loss::Loss;
 use self::losses::CrossEntropyLoss;
 use mnist::{Mnist, MnistBuilder};
+
+// model! {
+//     Conv2dNormalized {
+//         Sequential {
+//             Conv2d {
+//                 kernel_shape: , 
+//                 filters: planes,
+//                 stride: stride,
+//                 bias: false,
+//             },
+
+//             BatchNorm2d {
+
+//             }
+//         }
+//     }
+// }
+
+// model! {
+//     Conv2dNormalized (height, width, channels) {
+//         input: (height, width, channels),
+
+//         name: "",
+//         description: "",
+
+//         layers: {
+//             conv1: Conv2d {
+//                 kernel_shape: , 
+//                 filters: planes,
+//                 stride: stride,
+//                 bias: false,
+//             };
+
+//             bn1: BatchNorm2d {
+
+//             };
+//         };
+
+//         connect: input -> conv1 -> bn1
+//     }
+// }
+
+
+
+// model! {
+//     Bottleneck(inplanes, planes, stride=1, downsample=None) {
+//         Sequential  {
+//             Conv2d {
+//                 kernel_shape: , 
+//                 filters: planes,
+//                 stride: stride,
+//                 bias: false,
+//             },
+
+//             BatchNorm2d {
+
+//             },
+
+//             Conv2d {
+
+//             },
+
+//             BatchNorm2d {
+
+//             },
+
+//             Conv2d {
+
+//             },
+
+//             BatchNorm2d {
+
+//             }
+//         }
+//     }
+// }
+
+// model! {
+//     Sequential {
+//         input_shape: (3, 224, 224),
+
+//         Parallel {
+//             final: Sequential {
+//                 Addition,
+//                 ReLu,
+//             },
+
+//             Stream {
+//                 Conv2d {
+//                     kernel: (3, 3),
+//                     strides: (1, 1),
+//                 },
+//                 ReLu,
+//                 MaxPool2d {
+//                     kernel: (2, 2),
+//                     strides: (2, 2), 
+//                 },
+
+//                 Conv2d {
+//                     kernel: (3, 3),
+//                     strides: (1, 1),
+//                 },
+
+//                 MaxPool2d {
+//                     kernel: (2, 2),
+//                     strides: (2, 2), 
+//                 },
+//             },
+
+//             Stream {
+//                 Conv2d {
+//                     kernel: (3, 3),
+//                     strides: (1, 1),
+//                 },
+
+//                 AvgPool2d {
+//                     kernel: (2, 2),
+//                     strides: (2, 2), 
+//                 },
+
+//                 Conv2d {
+//                     kernel: (3, 3),
+//                     strides: (1, 1),
+//                 },
+
+//                 AvgPool2d {
+//                     kernel: (2, 2),
+//                     strides: (2, 2), 
+//                 },
+//             }
+//         },
+
+//         Flatten,
+
+//         Linear {
+//             units: 4096
+//         }
+//     }
+// }
 
 fn calc_accuracy<N, B: Backend<N>>(back: &B, pred: &B::Tensor, targets: &[u8]) -> f32 {
     let mut vec = vec![0.0; pred.shape().size()];
@@ -55,24 +196,57 @@ fn calc_accuracy<N, B: Backend<N>>(back: &B, pred: &B::Tensor, targets: &[u8]) -
 }
 
 fn main() {
-    const BATCH_SIZE: usize = 128;
+    const BATCH_SIZE: usize = 64;
 
     let backend = Native;
-    // let optimizer = Sgd::new(0.01, 0.1, false);
+    // let optimizer = Sgd::new(0.1, 0.01, true);
     let optimizer = RMSProp::default();
     let hidden_count = 16;
     
-    let mut linear_1: LayerImpl<_, _, _, Linear<_, _, &RMSProp<_, _>>> = LayerImpl::new((784, ).into(), &backend, &optimizer, LinearConfig {
-        outputs: hidden_count
-    });
+    let mut model = Chain::new(
+        LayerImpl::new(&backend, &optimizer, Linear::create(
+            (784, ).into(),
+            LinearConfig {
+                units: hidden_count,
+                ..Default::default()
+            }
+        )),
+        Chain::new(
+            LayerImpl::new(&backend, &optimizer, Sigmoid::create((hidden_count, ).into(), Default::default())),
+            Chain::new(
+                LayerImpl::new(&backend, &optimizer, Linear::create(
+                    (hidden_count, ).into(),
+                    LinearConfig {
+                        units: 10,
+                        ..Default::default()
+                    })
+                ),
+                LayerImpl::new(&backend, &optimizer, Sigmoid::create((10, ).into(), Default::default()))
+            )
+        )
+    );
+    
+    let mut train_ctx = ChainContext::new(
+        CommonLayerContext::new(),
+        ChainContext::new(
+            CommonLayerContext::new(),
+            ChainContext::new(
+                CommonLayerContext::new(),
+                CommonLayerContext::new()
+            )
+        )
+    );
 
-    let mut sigmoid_1: LayerImpl<_, _, _, Sigmoid<_, _>> = LayerImpl::new((hidden_count, ).into(), &backend, &optimizer, SigmoidConfig);
-
-    let mut linear_2: LayerImpl<_, _, _, Linear<_, _, &RMSProp<_, _>>> = LayerImpl::new((hidden_count, ).into(), &backend, &optimizer, LinearConfig {
-        outputs: 10
-    });
-
-    let mut sigmoid_2: LayerImpl<_, _, _, Sigmoid<_, _>> = LayerImpl::new((10, ).into(), &backend, &optimizer, SigmoidConfig);
+    let mut test_ctx = ChainContext::new(
+        CommonLayerContext::new(),
+        ChainContext::new(
+            CommonLayerContext::new(),
+            ChainContext::new(
+                CommonLayerContext::new(),
+                CommonLayerContext::new()
+            )
+        )
+    );
 
     let loss = CrossEntropyLoss::new();
 
@@ -104,17 +278,7 @@ fn main() {
 
     backend.load_tensor_u8(&mut targets0, &tmp[..]);
 
-    let mut train_linear_1 = LayerContext::new();
-    let mut train_sigmoid_1 = LayerContext::new();
-    let mut train_linear_2 = LayerContext::new();
-    let mut train_sigmoid_2 = LayerContext::new();
-    
-    let mut test_linear_1 = LayerContext::new();
-    let mut test_sigmoid_1 = LayerContext::new();
-    let mut test_linear_2 = LayerContext::new();
-    let mut test_sigmoid_2 = LayerContext::new();
-
-    for epoch in 1 ..= 100 {
+    for epoch in 1 ..= 25 {
         println!("epoch {}", epoch);
 
         for step in 0 .. (60000 / BATCH_SIZE) {
@@ -132,36 +296,16 @@ fn main() {
             }
 
             backend.load_tensor_u8(&mut targets, &tmp[..]);
-            
-            // forward
-            linear_1.forward(&inputs, &mut train_linear_1);
-            sigmoid_1.forward(&train_linear_1.outputs, &mut train_sigmoid_1);
-            linear_2.forward(&train_sigmoid_1.outputs, &mut train_linear_2);
-            sigmoid_2.forward(&train_linear_2.outputs, &mut train_sigmoid_2);
 
-            // loss
-            loss.derivative(&backend, &mut deltas, &train_sigmoid_2.outputs, &targets);
-
-            // backward
-            sigmoid_2.backward(&deltas, &mut train_sigmoid_2);
-            linear_2.backward(&train_sigmoid_2.deltas, &mut train_linear_2);
-            sigmoid_1.backward(&train_linear_2.deltas, &mut train_sigmoid_1);
-            // linear_1.backward(&train_sigmoid_1.deltas, &mut train_linear_1);
-
-            // update
-            
-            linear_1.update(&inputs, &train_sigmoid_1.deltas, &mut train_linear_1);
-            sigmoid_1.update(train_linear_1.outputs(), train_linear_2.deltas(), &mut train_sigmoid_1);
-            linear_2.update(&train_sigmoid_1.outputs, &train_sigmoid_2.deltas, &mut train_linear_2);
-            sigmoid_2.update(train_linear_2.outputs(), &deltas, &mut train_sigmoid_2);
+            model.forward(&inputs, &mut train_ctx);
+            loss.derivative(&backend, &mut deltas, train_ctx.outputs(), &targets);
+            model.backward(&deltas, &mut train_ctx);            
+            model.update(&inputs, &deltas, &mut train_ctx);
         }
 
-        linear_1.forward(&inputs0, &mut test_linear_1);
-        sigmoid_1.forward(test_linear_1.outputs(), &mut test_sigmoid_1);
-        linear_2.forward(test_sigmoid_1.outputs(), &mut test_linear_2);
-        sigmoid_2.forward(test_linear_2.outputs(), &mut test_sigmoid_2);
+        model.forward(&inputs0, &mut test_ctx);
 
-        println!("Accuracy {}", calc_accuracy(&backend, &test_sigmoid_2.outputs, targets0_slice));
+        println!("Accuracy {}", calc_accuracy(&backend, test_ctx.outputs(), targets0_slice));
     }
 }
 

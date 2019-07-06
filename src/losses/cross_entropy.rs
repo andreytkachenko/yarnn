@@ -16,7 +16,7 @@ impl<N, B> CrossEntropyLoss<N, B> {
 }
 
 impl<N, B: Backend<N> + BackendSub<N>> Loss<N, B> for CrossEntropyLoss<N, B> {
-    fn compute(&self, backend: &B, dst: &mut B::Tensor, pred: &B::Tensor, target: &B::Tensor) {
+    fn compute(&self, _backend: &B, _dst: &mut B::Tensor, _pred: &B::Tensor, _target: &B::Tensor) {
         
     }
 

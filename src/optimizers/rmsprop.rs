@@ -2,7 +2,6 @@ use std::marker::PhantomData;
 use crate::backend::{Backend, BackendAdam};
 use crate::optimizer::{Optimizer, OptimizerContext};
 use crate::tensor::{Tensor, TensorShape};
-use std::cell::Cell;
 
 
 pub struct RMSPropContext<N, B> 

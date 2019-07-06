@@ -1,17 +1,19 @@
 use crate::tensor::{Tensor, TensorShape};
-use crate::layer::{Layer, Params};
+use crate::layer::Layer;
+use crate::params::Params;
 use crate::backend::{Backend, BackendGemm, BackendBias, BackendScale};
 use crate::optimizer::{Optimizable, Optimizer};
-use crate::backends::Native;
 
 pub struct LinearConfig {
-    pub outputs: u32,
+    pub units: u32,
+    pub biases: bool,
 }
 
 impl Default for LinearConfig {
     fn default() -> Self {
         Self {
-            outputs: 1
+            units: 1,
+            biases: false,
         }
     }
 }
@@ -20,10 +22,11 @@ pub struct Linear<N, B, O>
     where B: Backend<N>,
           O: Optimizer<N, B>
 {
+    inputs: u32,
     outputs: u32,
-    input_shape: TensorShape,
+    add_biases: bool,
     weights: Params<N, B, O>,
-    // biases: Params<N, B, O>,
+    biases: Params<N, B, O>,
 }
 
 impl <N, B, O> Layer<N, B> for Linear<N, B, O> 
@@ -33,19 +36,28 @@ impl <N, B, O> Layer<N, B> for Linear<N, B, O>
     type Config = LinearConfig;
     
     fn create(input_shape: TensorShape, cfg: Self::Config) -> Self {
-        let dim0 = input_shape.get(0);
+        assert!(input_shape.dims == 1);
+
+        let inputs = input_shape.get(0);
 
         Linear {
-            outputs: cfg.outputs,
-            input_shape,
-            weights: Params::new((dim0, cfg.outputs)),
-            // biases: Params::new((cfg.outputs, )),
+            inputs,
+            outputs: cfg.units,
+            add_biases: cfg.biases,
+            weights: Params::new((inputs, cfg.units)),
+            biases: Params::new((cfg.units, )),
         }
     }
 
     fn init(&mut self, backend: &B) {
-        self.weights.init_random(backend, self.outputs + self.input_shape.size() as u32);
-        // self.biases.init_zero(backend);
+        self.weights.init_random(backend, self.inputs + self.outputs);
+        if self.add_biases {
+            self.biases.init_zero(backend);
+        }
+    }
+
+    fn input_shape(&self) -> TensorShape {
+        TensorShape::new1d(self.inputs)
     }
 
     fn output_shape(&self) -> TensorShape {
@@ -54,10 +66,13 @@ impl <N, B, O> Layer<N, B> for Linear<N, B, O>
     
     fn forward(&self, backend: &B, dst: &mut B::Tensor, inputs: &B::Tensor) {
         backend.matmul(dst, inputs, &self.weights.params);
-        // backend.bias_add(dst, &self.biases.params);
+
+        if self.add_biases {
+            backend.bias_add(dst, &self.biases.params);
+        }
     }
 
-    fn backward(&mut self, backend: &B, dst: &mut B::Tensor, deltas: &B::Tensor, _: &B::Tensor) {
+    fn backward(&self, backend: &B, dst: &mut B::Tensor, deltas: &B::Tensor, _: &B::Tensor) {
         backend.matmul_nt(dst, deltas, &self.weights.params);
     }
 }
@@ -69,11 +84,17 @@ impl <N, B, O> Optimizable<N, B, O> for Linear<N, B, O>
     fn calc_gradients(&mut self, backend: &B, inputs: &B::Tensor, deltas: &B::Tensor) {
         backend.matmul_tn(&mut self.weights.grads, inputs, deltas);
         backend.scale(&mut self.weights.grads, backend.scalar_f32(1.0 / inputs.shape().get(0) as f32));
-        // backend.bias_grad(&mut self.biases.grads, inputs);
+
+        if self.add_biases {
+            backend.bias_grad(&mut self.biases.grads, inputs);
+        }
     }
 
     fn optimize(&mut self, backend: &B, optimizer: &O) {
         optimizer.update_params(backend, &mut self.weights.ctx, &mut self.weights.params, &self.weights.grads);
-        // optimizer.update_params(backend, &mut self.biases.ctx, &mut self.biases.params, &self.biases.grads);
+
+        if self.add_biases {
+            optimizer.update_params(backend, &mut self.biases.ctx, &mut self.biases.params, &self.biases.grads);
+        }
     }
 }

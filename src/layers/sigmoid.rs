@@ -33,7 +33,7 @@ impl <N, B> Layer<N, B> for Sigmoid<N, B>
         backend.sigmoid(dst, inputs);
     }
 
-    fn backward(&mut self, backend: &B, dst: &mut B::Tensor, deltas: &B::Tensor, outputs: &B::Tensor) {
+    fn backward(&self, backend: &B, dst: &mut B::Tensor, deltas: &B::Tensor, outputs: &B::Tensor) {
         backend.sigmoid_grad(dst, outputs, deltas);
     }
 }
