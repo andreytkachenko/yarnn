@@ -1,29 +1,29 @@
-use crate::tensor::TensorShape;
-use crate::backend::{Backend, BackendSoftmax};
+use crate::tensor::{Tensor, TensorShape};
+use crate::backend::{Backend, BackendCopy};
 use crate::layer::Layer;
 use std::marker::PhantomData;
 
 #[derive(Default)]
-pub struct SoftmaxConfig;
+pub struct FlattenConfig;
 
-pub struct Softmax<N, B> 
+pub struct Flatten<N, B> 
     where B: Backend<N>,
 {
     input_shape: TensorShape,
     _x: PhantomData<fn(N, B)>,
 }
 
-impl <N, B> Layer<N, B> for Softmax<N, B> 
-    where B: Backend<N> + BackendSoftmax<N>
+impl <N, B> Layer<N, B> for Flatten<N, B> 
+    where B: Backend<N> + BackendCopy<N>
 {
-    type Config = SoftmaxConfig;
-    
+    type Config = FlattenConfig;
+
     fn name(&self) -> &str {
-        "Softmax"
+        "Flatten"
     }
     
     fn create(input_shape: TensorShape, _cfg: Self::Config) -> Self {
-        Softmax {
+        Flatten {
             input_shape,
             _x: Default::default()
         }
@@ -35,8 +35,13 @@ impl <N, B> Layer<N, B> for Softmax<N, B>
     }
 
     #[inline]
+    fn output_shape(&self) -> TensorShape {
+        TensorShape::new1d(self.input_shape.size() as u32)
+    }
+    
+    #[inline]
     fn forward(&self, backend: &B, y: &mut B::Tensor, x: &B::Tensor) {
-        backend.softmax(y, x);
+        backend.copy(y, x);
     }
 
     #[inline]

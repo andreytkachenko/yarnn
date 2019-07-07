@@ -1,5 +1,5 @@
-#![feature(specialization)]
-#![feature(core_intrinsics)]
+#![feature(specialization, trait_alias)]
+
 
 pub mod layer;
 pub mod layers;
@@ -16,97 +16,23 @@ pub mod losses;
 pub mod tensor;
 pub mod params;
 
+mod conv_model;
+mod dense_model;
+
+#[macro_use]
+mod macros;
+
 use self::backends::{Native, NativeTensorF32};
 use self::optimizers::*;
-use self::layers::*;
 use self::layer::*;
 use crate::backend::*;
 use self::tensor::Tensor;
 use self::loss::Loss;
 use self::losses::CrossEntropyLoss;
 use mnist::{Mnist, MnistBuilder};
-use crate::optimizer::Optimizer;
+use crate::conv_model::*;
+use crate::dense_model::*;
 
-
-pub type DenseModelContext<N, B> = ChainContext<N, B, 
-    CommonLayerContext<N, B>,
-    ChainContext<N, B,
-        CommonLayerContext<N, B>,
-        ChainContext<N, B,
-            CommonLayerContext<N, B>,
-            CommonLayerContext<N, B>,
-        >
-    >
->;
-
-pub struct DenseModel<N, B, O> 
-    where B: Backend<N> + BackendReLu<N> + BackendGemm<N> + BackendBias<N> + BackendSoftmax<N>,
-          O: Optimizer<N, B>,
-{
-    inner: Chain<N, B, O,
-        LayerImpl<N, B, O, Linear<N, B, O>>,
-        Chain<N, B, O,
-            LayerImpl<N, B, O, ReLu<N, B>>,
-            Chain<N, B, O,
-                LayerImpl<N, B, O, Linear<N, B, O>>,
-                LayerImpl<N, B, O, Softmax<N, B>>,
-            >
-        >
-    >
-}
-
-impl<N, B, O> DenseModel<N, B, O> 
-    where B: Backend<N> + BackendReLu<N> + BackendGemm<N> + BackendBias<N> + BackendSoftmax<N>,
-          O: Optimizer<N, B>,
-{
-    pub fn new(input_size: u32, output_size: u32, hidden_count: u32) -> Self {
-        Self {
-            inner: Chain::new(
-                LayerImpl::new(Linear::create(
-                    (input_size, ).into(),
-                    LinearConfig {
-                        units: hidden_count,
-                        ..Default::default()
-                    }
-                )),
-                Chain::new(
-                    LayerImpl::new(ReLu::create((hidden_count, ).into(), Default::default())),
-                    Chain::new(
-                        LayerImpl::new(Linear::create(
-                            (hidden_count, ).into(),
-                            LinearConfig {
-                                units: output_size,
-                                ..Default::default()
-                            })),
-                        LayerImpl::new(Softmax::create((output_size, ).into(), Default::default()))
-                    )
-                )
-            )
-        }
-    }
-}
-
-impl<N, B, O> AbstractLayer<N, B, O> for DenseModel<N, B, O> 
-    where B: Backend<N> + BackendReLu<N> + BackendGemm<N> + BackendBias<N> + BackendSoftmax<N>,
-          O: Optimizer<N, B>
-{
-    type Context = DenseModelContext<N, B>;
-
-    #[inline]
-    fn forward(&mut self, backend: &B,  inputs: &B::Tensor, ctx: &mut Self::Context) {
-        self.inner.forward(backend, inputs, ctx);
-    }
-
-    #[inline]
-    fn backward(&mut self, backend: &B, deltas: &B::Tensor, ctx: &mut Self::Context) {
-        self.inner.backward(backend, deltas, ctx);
-    }
-
-    #[inline]
-    fn update(&mut self, backend: &B, optimizer: &O, inputs: &B::Tensor, deltas: &B::Tensor, ctx: &mut Self::Context) {
-        self.inner.update(backend, optimizer, inputs, deltas, ctx);
-    }
-}
 
 fn calc_accuracy<N, B: Backend<N>>(back: &B, pred: &B::Tensor, targets: &[u8]) -> f32 {
     let mut vec = vec![0.0; pred.shape().size()];
@@ -138,6 +64,7 @@ fn calc_accuracy<N, B: Backend<N>>(back: &B, pred: &B::Tensor, targets: &[u8]) -
     (positives as f32) / (total as f32) 
 }
 
+
 fn main() {
     const BATCH_SIZE: usize = 64;
 
@@ -145,7 +72,9 @@ fn main() {
     // let optimizer = Sgd::new(0.1, 0.01, true);
     let optimizer = Adam::default();
     
-    let mut model = DenseModel::new(784, 10, 16);
+    // let mut model = DenseModel::new(784, 10, 16);
+    let mut model = DenseModel::new(28, 28, 1);
+    println!("{}", &model);
     let mut train_ctx = Default::default();
     let mut test_ctx = Default::default();
 
@@ -156,13 +85,13 @@ fn main() {
         .label_format_digit()
         .finalize();
 
-    let mut inputs = NativeTensorF32::new((BATCH_SIZE as u32, 784));
+    let mut inputs = NativeTensorF32::new((BATCH_SIZE as u32, 1, 28, 28));
     let mut targets = NativeTensorF32::new((BATCH_SIZE as u32, 10));
     let mut deltas = NativeTensorF32::new((BATCH_SIZE as u32, 10));
 
     let test_count = 1000;
 
-    let mut inputs0 = NativeTensorF32::new((test_count as u32, 784));
+    let mut inputs0 = NativeTensorF32::new((test_count as u32, 1, 28, 28));
     let mut targets0 = NativeTensorF32::new((test_count as u32, 10));
 
     let mut tmp = vec![0u8; 10 * test_count];
@@ -179,7 +108,7 @@ fn main() {
 
     backend.load_tensor_u8(&mut targets0, &tmp[..]);
 
-    for epoch in 1 ..= 20 {
+    for epoch in 1 ..= 1 {
         println!("epoch {}", epoch);
 
         for step in 0 .. (60000 / BATCH_SIZE) {
@@ -200,7 +129,7 @@ fn main() {
 
             model.forward(&backend, &inputs, &mut train_ctx);
             loss.derivative(&backend, &mut deltas, train_ctx.outputs(), &targets);
-            model.backward(&backend, &deltas, &mut train_ctx);            
+            model.backward(&backend, &deltas, &inputs, &mut train_ctx);            
             model.update(&backend, &optimizer, &inputs, &deltas, &mut train_ctx);
         }
 

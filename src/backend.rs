@@ -1,4 +1,4 @@
-use crate::tensor::Tensor;
+use crate::tensor::{Tensor};
 
 
 pub trait Backend<N> {
@@ -6,6 +6,7 @@ pub trait Backend<N> {
 
     fn store_tensor_f32(&self, t: &Self::Tensor, data: &mut [f32]);
     fn load_tensor_u8(&self, t: &mut Self::Tensor, data: &[u8]);
+    fn load_tensor_f32(&self, t: &mut Self::Tensor, data: &[f32]);
     fn scalar_f32(&self, val: f32) -> N;
     fn fill_scalar(&self, t: &mut Self::Tensor, scalar: N);
     fn fill_random(&self, t: &mut Self::Tensor, from: N, to: N);
@@ -23,6 +24,11 @@ impl <'a, N, T: Backend<N>> Backend<N> for &'a T {
     #[inline]
     fn load_tensor_u8(&self, dst: &mut Self::Tensor, slice: &[u8]) {
          (**self).load_tensor_u8(dst, slice)
+    }
+
+    #[inline]
+    fn load_tensor_f32(&self, dst: &mut Self::Tensor, slice: &[f32]) {
+         (**self).load_tensor_f32(dst, slice)
     }
 
     #[inline]
@@ -251,5 +257,86 @@ impl <'a, N, T: BackendSoftmax<N>> BackendSoftmax<N> for &'a T {
     #[inline]
     fn softmax(&self, y: &mut Self::Tensor, x: &Self::Tensor) {
         (**self).softmax(y, x)
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum PaddingKind {
+    Valid,
+    Same,
+    Full,
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct Conv2dInfo {
+    pub padding: PaddingKind, 
+    pub strides: (u32, u32),
+    pub kernel: (u32, u32),
+}
+
+pub trait BackendConv2d<N>: Backend<N> {
+    type Context;
+
+    fn conv2d_forward(&self, y: &mut Self::Tensor, x: &Self::Tensor, filter: &Self::Tensor, conv_info: &Conv2dInfo);
+    fn conv2d_backward_input(&self, dx: &mut Self::Tensor, dy: &Self::Tensor, filter: &Self::Tensor, conv_info: &Conv2dInfo);
+    fn conv2d_backward_filter(&self, dw: &mut Self::Tensor, x: &Self::Tensor, dy: &Self::Tensor, conv_info: &Conv2dInfo);
+}
+
+impl <'a, N, T: BackendConv2d<N>> BackendConv2d<N> for &'a T {
+    type Context = ();
+    
+    #[inline]
+    fn conv2d_forward(&self, y: &mut Self::Tensor, x: &Self::Tensor, filters: &Self::Tensor, conv_info: &Conv2dInfo) {
+        (**self).conv2d_forward(y, x, filters, conv_info)
+    }
+    
+    #[inline]
+    fn conv2d_backward_input(&self, dx: &mut Self::Tensor, dy: &Self::Tensor, filters: &Self::Tensor, conv_info: &Conv2dInfo) {
+        (**self).conv2d_backward_input(dx, dy, filters, conv_info)
+    }
+    
+    #[inline]
+    fn conv2d_backward_filter(&self, dw: &mut Self::Tensor, x: &Self::Tensor, dy: &Self::Tensor, conv_info: &Conv2dInfo) {
+        (**self).conv2d_forward(dw, x, dy, conv_info)
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum PoolingKind {
+    Max,
+    Avg,
+}
+
+pub trait BackendMaxPool2d<N>: Backend<N> {
+    fn max_pool2d(&self, y: &mut Self::Tensor, x: &Self::Tensor, conv_info: &Conv2dInfo);
+    fn max_pool2d_backprop(&self, dx: &mut Self::Tensor, dy: &Self::Tensor, x: &Self::Tensor, conv_info: &Conv2dInfo);
+}
+
+impl <'a, N, T: BackendMaxPool2d<N>> BackendMaxPool2d<N> for &'a T {
+    #[inline]
+    fn max_pool2d(&self, y: &mut Self::Tensor, x: &Self::Tensor, conv_info: &Conv2dInfo) {
+        (**self).max_pool2d(y, x, conv_info)
+    }
+    
+    #[inline]
+    fn max_pool2d_backprop(&self, dx: &mut Self::Tensor, dy: &Self::Tensor, x: &Self::Tensor, conv_info: &Conv2dInfo) {
+        (**self).max_pool2d_backprop(dx, dy, x, conv_info)
+    }
+}
+
+pub trait BackendAvgPool2d<N>: Backend<N> {
+    fn avg_pool2d(&self, y: &mut Self::Tensor, x: &Self::Tensor, conv_info: &Conv2dInfo);
+    fn avg_pool2d_backprop(&self, dx: &mut Self::Tensor, dy: &Self::Tensor, x: &Self::Tensor, conv_info: &Conv2dInfo);
+}
+
+impl <'a, N, T: BackendAvgPool2d<N>> BackendAvgPool2d<N> for &'a T {
+    #[inline]
+    fn avg_pool2d(&self, y: &mut Self::Tensor, x: &Self::Tensor, conv_info: &Conv2dInfo) {
+        (**self).avg_pool2d(y, x, conv_info)
+    }
+    
+    #[inline]
+    fn avg_pool2d_backprop(&self, dx: &mut Self::Tensor, dy: &Self::Tensor, x: &Self::Tensor, conv_info: &Conv2dInfo) {
+        (**self).avg_pool2d_backprop(dx, dy, x, conv_info)
     }
 }

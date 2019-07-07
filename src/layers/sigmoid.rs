@@ -18,6 +18,10 @@ impl <N, B> Layer<N, B> for Sigmoid<N, B>
 {
     type Config = SigmoidConfig;
     
+    fn name(&self) -> &str {
+        "Sigmoid"
+    }
+    
     fn create(input_shape: TensorShape, _cfg: Self::Config) -> Self {
         Sigmoid {
             input_shape,
@@ -25,15 +29,18 @@ impl <N, B> Layer<N, B> for Sigmoid<N, B>
         }
     }
 
-    fn output_shape(&self) -> TensorShape {
+    #[inline]
+    fn input_shape(&self) -> TensorShape {
         self.input_shape.clone()
     }
-    
-    fn forward(&self, backend: &B, dst: &mut B::Tensor, inputs: &B::Tensor) {
-        backend.sigmoid(dst, inputs);
+
+    #[inline]
+    fn forward(&self, backend: &B, y: &mut B::Tensor, x: &B::Tensor) {
+        backend.sigmoid(y, x);
     }
 
-    fn backward(&self, backend: &B, dst: &mut B::Tensor, deltas: &B::Tensor, outputs: &B::Tensor) {
-        backend.sigmoid_grad(dst, outputs, deltas);
+    #[inline]
+    fn backward(&self, backend: &B, dx: &mut B::Tensor, dy: &B::Tensor, _x: &B::Tensor, y: &B::Tensor) {
+        backend.sigmoid_grad(dx, y, dy);
     }
 }

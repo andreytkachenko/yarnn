@@ -24,7 +24,7 @@ pub struct Linear<N, B, O>
 {
     inputs: u32,
     outputs: u32,
-    add_biases: bool,
+    use_biases: bool,
     weights: Params<N, B, O>,
     biases: Params<N, B, O>,
 }
@@ -34,6 +34,10 @@ impl <N, B, O> Layer<N, B> for Linear<N, B, O>
           O: Optimizer<N, B>
 {
     type Config = LinearConfig;
+
+    fn name(&self) -> &str {
+        "Linear"
+    }
     
     fn create(input_shape: TensorShape, cfg: Self::Config) -> Self {
         assert!(input_shape.dims == 1);
@@ -43,7 +47,7 @@ impl <N, B, O> Layer<N, B> for Linear<N, B, O>
         Linear {
             inputs,
             outputs: cfg.units,
-            add_biases: cfg.biases,
+            use_biases: cfg.biases,
             weights: Params::new((inputs, cfg.units)),
             biases: Params::new((cfg.units, )),
         }
@@ -51,29 +55,33 @@ impl <N, B, O> Layer<N, B> for Linear<N, B, O>
 
     fn init(&mut self, backend: &B) {
         self.weights.init_random(backend, self.inputs + self.outputs);
-        if self.add_biases {
+        if self.use_biases {
             self.biases.init_zero(backend);
         }
     }
 
+    #[inline]
     fn input_shape(&self) -> TensorShape {
         TensorShape::new1d(self.inputs)
     }
 
+    #[inline]
     fn output_shape(&self) -> TensorShape {
         TensorShape::new1d(self.outputs)
     }
     
-    fn forward(&self, backend: &B, dst: &mut B::Tensor, inputs: &B::Tensor) {
-        backend.matmul(dst, inputs, &self.weights.params);
+    #[inline]
+    fn forward(&self, backend: &B, y: &mut B::Tensor, x: &B::Tensor) {
+        backend.matmul(y, x, &self.weights.params);
 
-        if self.add_biases {
-            backend.bias_add(dst, &self.biases.params);
+        if self.use_biases {
+            backend.bias_add(y, &self.biases.params);
         }
     }
 
-    fn backward(&self, backend: &B, dst: &mut B::Tensor, deltas: &B::Tensor, _: &B::Tensor) {
-        backend.matmul_nt(dst, deltas, &self.weights.params);
+    #[inline]
+    fn backward(&self, backend: &B, dx: &mut B::Tensor, dy: &B::Tensor, _: &B::Tensor, _: &B::Tensor) {
+        backend.matmul_nt(dx, dy, &self.weights.params);
     }
 }
 
@@ -87,16 +95,17 @@ impl <N, B, O> Optimizable<N, B, O> for Linear<N, B, O>
         backend.matmul_tn(&mut self.weights.grads, inputs, deltas);
         backend.scale(&mut self.weights.grads, backend.scalar_f32(prescaler));
 
-        if self.add_biases {
+        if self.use_biases {
             backend.scale(&mut self.biases.grads, backend.scalar_f32(prescaler));
             backend.bias_grad(&mut self.biases.grads, deltas);
         }
     }
 
+    #[inline]
     fn optimize(&mut self, backend: &B, optimizer: &O) {
         optimizer.update_params(backend, &mut self.weights.ctx, &mut self.weights.params, &self.weights.grads);
 
-        if self.add_biases {
+        if self.use_biases {
             optimizer.update_params(backend, &mut self.biases.ctx, &mut self.biases.params, &self.biases.grads);
         }
     }

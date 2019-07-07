@@ -18,6 +18,10 @@ impl <N, B> Layer<N, B> for ReLu<N, B>
 {
     type Config = ReLuConfig;
     
+    fn name(&self) -> &str {
+        "ReLU"
+    }
+    
     fn create(input_shape: TensorShape, _cfg: Self::Config) -> Self {
         ReLu {
             input_shape,
@@ -25,15 +29,18 @@ impl <N, B> Layer<N, B> for ReLu<N, B>
         }
     }
 
-    fn output_shape(&self) -> TensorShape {
+    #[inline]
+    fn input_shape(&self) -> TensorShape {
         self.input_shape.clone()
     }
     
-    fn forward(&self, backend: &B, dst: &mut B::Tensor, inputs: &B::Tensor) {
-        backend.relu(dst, inputs);
+    #[inline]
+    fn forward(&self, backend: &B, y: &mut B::Tensor, x: &B::Tensor) {
+        backend.relu(y, x);
     }
 
-    fn backward(&self, backend: &B, dst: &mut B::Tensor, deltas: &B::Tensor, outputs: &B::Tensor) {
-        backend.relu_grad(dst, outputs, deltas);
+    #[inline]
+    fn backward(&self, backend: &B, dx: &mut B::Tensor, dy: &B::Tensor, _x: &B::Tensor, y: &B::Tensor) {
+        backend.relu_grad(dx, y, dy);
     }
 }

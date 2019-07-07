@@ -70,6 +70,20 @@ impl<N, B, O, L, R> Chain<N, B, O, L, R>
     }
 }
 
+impl<N, B, O, L, R> std::fmt::Display for Chain<N, B, O, L, R> 
+    where B: Backend<N>,
+          O: Optimizer<N, B>,
+          L: AbstractLayer<N, B, O>,
+          R: AbstractLayer<N, B, O>,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        self.left.fmt(f)?;
+        self.right.fmt(f)?;
+
+        Ok(())
+    }
+}
+
 impl<N, B, O, L, R> AbstractLayer<N, B, O> for Chain<N, B, O, L, R> 
     where B: Backend<N>,
           O: Optimizer<N, B>,
@@ -85,9 +99,9 @@ impl<N, B, O, L, R> AbstractLayer<N, B, O> for Chain<N, B, O, L, R>
     }
 
     #[inline]
-    fn backward(&mut self, backend: &B, deltas: &B::Tensor, ctx: &mut Self::Context) {
-        self.right.backward(backend, deltas, &mut ctx.right);
-        self.left.backward(backend, ctx.right.deltas(), &mut ctx.left);
+    fn backward(&mut self, backend: &B, deltas: &B::Tensor, inputs: &B::Tensor, ctx: &mut Self::Context) {
+        self.right.backward(backend, deltas, ctx.left.outputs(), &mut ctx.right);
+        self.left.backward(backend, ctx.right.deltas(), inputs, &mut ctx.left);
     }
 
     #[inline]

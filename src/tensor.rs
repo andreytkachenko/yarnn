@@ -233,6 +233,15 @@ impl From<(u32, u32, u32)> for TensorShape {
     }
 }
 
+impl From<(u32, u32, u32, u32)> for TensorShape {
+    fn from(x: (u32, u32, u32, u32)) -> Self {
+        TensorShape {
+            shape: [x.0 , x.1, x.2, x.3],
+            dims: 4,
+        }
+    }
+}
+
 pub trait Tensor<N> {
     fn new<S: Into<TensorShape>>(shape: S) -> Self;
     fn shape(&self) -> &TensorShape;

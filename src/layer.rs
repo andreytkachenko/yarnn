@@ -4,23 +4,29 @@ use crate::tensor::{Tensor, TensorShape};
 
 use core::marker::PhantomData;
 
+
+pub struct LayerInfo<'a> {
+    kind: &'a str,
+    params: usize,
+}
+
 pub trait Layer<N, B: Backend<N>> {
     type Config: Default;
+    fn name(&self) -> &str;
     fn create(input_shape: TensorShape, cfg: Self::Config) -> Self;
     
     #[inline]
     fn init(&mut self, _backend: &B) {}
-    
+
+    fn input_shape(&self) -> TensorShape;
+
     #[inline]
-    fn input_shape(&self) -> TensorShape {
-        self.output_shape()
+    fn output_shape(&self) -> TensorShape {
+        self.input_shape()
     }
     
-    fn output_shape(&self) -> TensorShape;
-    
-    fn forward(&self, backend: &B, dst: &mut B::Tensor, inputs: &B::Tensor);
-    
-    fn backward(&self, backend: &B, dst: &mut B::Tensor, deltas: &B::Tensor, outputs: &B::Tensor);
+    fn forward(&self, backend: &B, y: &mut B::Tensor, x: &B::Tensor);
+    fn backward(&self, backend: &B, dx: &mut B::Tensor, dy: &B::Tensor, x: &B::Tensor, y: &B::Tensor);
 }
 
 /// Temporary solution until I find a solution with problem of inference with specializations
@@ -33,11 +39,11 @@ impl <T, N, B, O> Optimizable<N, B, O> for T
     default fn optimize(&mut self, _backend: &B, _optimizer: &O) {}
 }
 
-pub trait AbstractLayer<N, B: Backend<N>, O: Optimizer<N, B>> {
+pub trait AbstractLayer<N, B: Backend<N>, O: Optimizer<N, B>>: std::fmt::Display {
     type Context: LayerContext<N, B>;
 
     fn forward(&mut self, backend: &B, inputs: &B::Tensor, ctx: &mut Self::Context);
-    fn backward(&mut self, backend: &B, deltas: &B::Tensor, ctx: &mut Self::Context);
+    fn backward(&mut self, backend: &B, deltas: &B::Tensor, inputs: &B::Tensor, ctx: &mut Self::Context);
     fn update(&mut self, backend: &B, optimizer: &O, inputs: &B::Tensor, deltas: &B::Tensor, ctx: &mut Self::Context);
 }
 
@@ -105,7 +111,7 @@ pub struct LayerImpl <N, B, O, L>
     where B: Backend<N>,
           O: Optimizer<N, B>
 {
-    layer: L,
+    pub layer: L,
     initialized: bool,
     _m: PhantomData<fn(N, B, O)>,
 }
@@ -121,6 +127,20 @@ impl <N, B, O, L> LayerImpl<N, B, O, L>
             initialized: false,
             _m: Default::default(),
         }
+    }
+}
+
+impl <N, B, O, L> std::fmt::Display for LayerImpl<N, B, O, L> 
+    where B: Backend<N>,
+          O: Optimizer<N, B>,
+          L: Layer<N, B>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{} -> ", self.layer.input_shape());
+        write!(f, "{}", self.layer.name());
+        writeln!(f, " -> {}", self.layer.output_shape());
+
+        Ok(())
     }
 }
 
@@ -143,9 +163,9 @@ impl <N, B, O, L> AbstractLayer<N, B, O> for LayerImpl<N, B, O, L>
     }
 
     #[inline]
-    fn backward(&mut self, backend: &B, deltas: &B::Tensor, ctx: &mut Self::Context) {
+    fn backward(&mut self, backend: &B, deltas: &B::Tensor, inputs: &B::Tensor, ctx: &mut Self::Context) {
         ctx.update_deltas_bs(deltas.shape().get(0), &self.layer.input_shape());
-        self.layer.backward(&backend, &mut ctx.deltas, deltas, &ctx.outputs);
+        self.layer.backward(&backend, &mut ctx.deltas, deltas, inputs, &ctx.outputs);
     }
 
     #[inline]
