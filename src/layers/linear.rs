@@ -82,11 +82,14 @@ impl <N, B, O> Optimizable<N, B, O> for Linear<N, B, O>
           O: Optimizer<N, B>
 {
     fn calc_gradients(&mut self, backend: &B, inputs: &B::Tensor, deltas: &B::Tensor) {
+        let prescaler = 1.0 / inputs.shape().get(0) as f32;
+
         backend.matmul_tn(&mut self.weights.grads, inputs, deltas);
-        backend.scale(&mut self.weights.grads, backend.scalar_f32(1.0 / inputs.shape().get(0) as f32));
+        backend.scale(&mut self.weights.grads, backend.scalar_f32(prescaler));
 
         if self.add_biases {
-            backend.bias_grad(&mut self.biases.grads, inputs);
+            backend.scale(&mut self.biases.grads, backend.scalar_f32(prescaler));
+            backend.bias_grad(&mut self.biases.grads, deltas);
         }
     }
 

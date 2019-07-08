@@ -175,6 +175,10 @@ impl TensorShape {
 
         TensorShape { shape: strides, dims: self.dims }
     }
+
+    pub fn as_slice(&self) -> &[u32] {
+        &self.shape[0..self.dims]
+    }
 }
 
 impl From<()> for TensorShape {

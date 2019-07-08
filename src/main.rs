@@ -200,7 +200,7 @@ fn main() {
 
     let backend = Native;
     // let optimizer = Sgd::new(0.1, 0.01, true);
-    let optimizer = RMSProp::default();
+    let optimizer = Adam::default();
     let hidden_count = 16;
     
     let mut model = Chain::new(
@@ -212,7 +212,7 @@ fn main() {
             }
         )),
         Chain::new(
-            LayerImpl::new(&backend, &optimizer, Sigmoid::create((hidden_count, ).into(), Default::default())),
+            LayerImpl::new(&backend, &optimizer, ReLu::create((hidden_count, ).into(), Default::default())),
             Chain::new(
                 LayerImpl::new(&backend, &optimizer, Linear::create(
                     (hidden_count, ).into(),
@@ -221,7 +221,7 @@ fn main() {
                         ..Default::default()
                     })
                 ),
-                LayerImpl::new(&backend, &optimizer, Sigmoid::create((10, ).into(), Default::default()))
+                LayerImpl::new(&backend, &optimizer, ReLu::create((10, ).into(), Default::default()))
             )
         )
     );
@@ -278,7 +278,7 @@ fn main() {
 
     backend.load_tensor_u8(&mut targets0, &tmp[..]);
 
-    for epoch in 1 ..= 25 {
+    for epoch in 1 ..= 20 {
         println!("epoch {}", epoch);
 
         for step in 0 .. (60000 / BATCH_SIZE) {

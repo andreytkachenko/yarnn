@@ -308,12 +308,72 @@ impl BackendReLu<f32> for Native {
 }
 
 impl BackendBias<f32> for Native {
-    fn bias_add(&self, _dst: &mut Self::Tensor, _bias: &Self::Tensor) {
-        unimplemented!()
+    fn bias_add(&self, dst: &mut Self::Tensor, biases: &Self::Tensor) {
+        let biases_shape = biases.shape();
+        let dst_shape = dst.shape().clone();
+        let biases_size = biases_shape.get(0) as usize;
+        let dst_size = dst_shape.size();
+        
+        assert!(dst_shape.get(dst_shape.dims - 1) as usize == biases_size);
+        
+        let batch_size = dst_shape.get(0) as usize;
+        let biases_s = &biases.read()[0 .. biases_size];
+        let dst_s = &mut dst.write()[0 .. dst_size];
+
+        let mut inner = 1usize;
+
+        for (idx, i) in dst_shape.as_slice().iter().enumerate() {
+            if idx == 0 || idx == dst_shape.dims - 1 {
+                continue;
+            }
+
+            inner *= *i as usize;
+        }
+
+        for b in 0 .. batch_size {
+            for i in 0..inner {
+                for l in 0..biases_size {
+                    let offset = b * (inner * biases_size) + i * biases_size + l;
+
+                    dst_s[offset] += biases_s[l];
+                }
+            }
+        }
     }
     
-    fn bias_grad(&self, _bias: &mut Self::Tensor, _inputs: &Self::Tensor) {
-        unimplemented!()
+    fn bias_grad(&self, dbiases: &mut Self::Tensor, deltas: &Self::Tensor) {
+        let dbiases_shape = dbiases.shape();
+        let deltas_shape = deltas.shape();
+        let dbiases_size = dbiases_shape.get(0) as usize;
+        let deltas_size = deltas_shape.size();
+        
+        assert!(deltas_shape.get(deltas_shape.dims - 1) as usize == dbiases_size);
+
+        let batch_size = deltas_shape.get(0) as usize;
+        let dbiases_s = &mut dbiases.write()[0 .. dbiases_size];
+        let deltas_s = &deltas.read()[0 .. deltas_size];
+
+        let mut inner = 1usize;
+
+        for (idx, i) in deltas_shape.as_slice().iter().enumerate() {
+            if idx == 0 || idx == deltas_shape.dims - 1 {
+                continue;
+            }
+
+            inner *= *i as usize;
+        }
+
+        for b in 0 .. batch_size {
+            for l in 0 .. dbiases_size {
+                let mut bias_grad = 0.0;
+                for i in 0 .. inner {
+                    let offset = b * (inner * dbiases_size) + i * dbiases_size + l;
+                    bias_grad += deltas_s[offset];
+                }
+
+                dbiases_s[l] = bias_grad;
+            }
+        }
     }
 }
 
