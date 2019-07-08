@@ -1,5 +1,6 @@
 use crate::backend::Backend;
 use crate::layer::{AbstractLayer, LayerContext};
+use crate::optimizer::Optimizer;
 
 use core::marker::PhantomData;
 
@@ -13,15 +14,15 @@ pub struct ChainContext<N, B, L, R>
     _m: PhantomData<fn(N, B)>
 }
 
-impl<N, B, L, R> ChainContext<N, B, L, R> 
+impl<N, B, L, R> Default for ChainContext<N, B, L, R> 
     where B: Backend<N>,
           L: LayerContext<N, B>,
           R: LayerContext<N, B>,
 {
-    pub fn new(left: L, right: R) -> Self {
+    fn default() -> Self {
         Self {
-            left,
-            right,
+            left: Default::default(),
+            right: Default::default(),
             _m: Default::default(),
         }
     }
@@ -43,20 +44,22 @@ impl<N, B, L, R> LayerContext<N, B> for ChainContext<N, B, L, R>
     }
 } 
 
-pub struct Chain<N, B, L, R> 
+pub struct Chain<N, B, O, L, R> 
     where B: Backend<N>,
-          L: AbstractLayer<N, B>,
-          R: AbstractLayer<N, B>,
+          O: Optimizer<N, B>,
+          L: AbstractLayer<N, B, O>,
+          R: AbstractLayer<N, B, O>,
 {
     left: L, 
     right: R,
-    _m: PhantomData<fn(N, B)>
+    _m: PhantomData<fn(N, B, O)>
 }
 
-impl<N, B, L, R> Chain<N, B, L, R> 
+impl<N, B, O, L, R> Chain<N, B, O, L, R> 
     where B: Backend<N>,
-          L: AbstractLayer<N, B>,
-          R: AbstractLayer<N, B>,
+          O: Optimizer<N, B>,
+          L: AbstractLayer<N, B, O>,
+          R: AbstractLayer<N, B, O>,
 {
     pub fn new(left: L, right: R) -> Self {
         Self {
@@ -67,28 +70,29 @@ impl<N, B, L, R> Chain<N, B, L, R>
     }
 }
 
-impl<N, B, L, R> AbstractLayer<N, B> for Chain<N, B, L, R> 
+impl<N, B, O, L, R> AbstractLayer<N, B, O> for Chain<N, B, O, L, R> 
     where B: Backend<N>,
-          L: AbstractLayer<N, B>,
-          R: AbstractLayer<N, B>,
+          O: Optimizer<N, B>,
+          L: AbstractLayer<N, B, O>,
+          R: AbstractLayer<N, B, O>,
 {
     type Context = ChainContext<N, B, L::Context, R::Context>;
 
     #[inline]
-    fn forward(&mut self, inputs: &B::Tensor, ctx: &mut Self::Context) {
-        self.left.forward(inputs, &mut ctx.left);
-        self.right.forward(ctx.left.outputs(), &mut ctx.right);
+    fn forward(&mut self, backend: &B, inputs: &B::Tensor, ctx: &mut Self::Context) {
+        self.left.forward(backend, inputs, &mut ctx.left);
+        self.right.forward(backend, ctx.left.outputs(), &mut ctx.right);
     }
 
     #[inline]
-    fn backward(&mut self, deltas: &B::Tensor, ctx: &mut Self::Context) {
-        self.right.backward(deltas, &mut ctx.right);
-        self.left.backward(ctx.right.deltas(), &mut ctx.left);
+    fn backward(&mut self, backend: &B, deltas: &B::Tensor, ctx: &mut Self::Context) {
+        self.right.backward(backend, deltas, &mut ctx.right);
+        self.left.backward(backend, ctx.right.deltas(), &mut ctx.left);
     }
 
     #[inline]
-    fn update(&mut self, inputs: &B::Tensor, deltas: &B::Tensor, ctx: &mut Self::Context) {
-        self.left.update(inputs, ctx.right.deltas(), &mut ctx.left);
-        self.right.update(ctx.left.outputs(), deltas, &mut ctx.right);
+    fn update(&mut self, backend: &B, optimizer: &O, inputs: &B::Tensor, deltas: &B::Tensor, ctx: &mut Self::Context) {
+        self.left.update(backend, optimizer, inputs, ctx.right.deltas(), &mut ctx.left);
+        self.right.update(backend, optimizer, ctx.left.outputs(), deltas, &mut ctx.right);
     }
 }

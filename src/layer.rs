@@ -33,15 +33,15 @@ impl <T, N, B, O> Optimizable<N, B, O> for T
     default fn optimize(&mut self, _backend: &B, _optimizer: &O) {}
 }
 
-pub trait AbstractLayer<N, B: Backend<N>> {
+pub trait AbstractLayer<N, B: Backend<N>, O: Optimizer<N, B>> {
     type Context: LayerContext<N, B>;
 
-    fn forward(&mut self, inputs: &B::Tensor, ctx: &mut Self::Context);
-    fn backward(&mut self, deltas: &B::Tensor, ctx: &mut Self::Context);
-    fn update(&mut self, inputs: &B::Tensor, deltas: &B::Tensor, ctx: &mut Self::Context);
+    fn forward(&mut self, backend: &B, inputs: &B::Tensor, ctx: &mut Self::Context);
+    fn backward(&mut self, backend: &B, deltas: &B::Tensor, ctx: &mut Self::Context);
+    fn update(&mut self, backend: &B, optimizer: &O, inputs: &B::Tensor, deltas: &B::Tensor, ctx: &mut Self::Context);
 }
 
-pub trait LayerContext<N, B: Backend<N>> {
+pub trait LayerContext<N, B: Backend<N>>: Default {
     fn outputs(&self) -> &B::Tensor;
     fn deltas(&self) -> &B::Tensor;
 }
@@ -53,16 +53,20 @@ pub struct CommonLayerContext<N, B>
     pub deltas: B::Tensor,
 }
 
-impl <N, B> CommonLayerContext<N, B> 
+impl <N, B> Default for CommonLayerContext<N, B> 
     where B: Backend<N>,
 {
-    pub fn new() -> Self {
+    fn default() -> Self {
         Self {
             outputs: B::Tensor::new(()),
             deltas: B::Tensor::new(()),
         }
     }
+}
 
+impl <N, B> CommonLayerContext<N, B> 
+    where B: Backend<N>,
+{
     pub fn update_deltas_bs(&mut self, bs: u32, input_shape: &TensorShape) {
         let mut new_deltas_shape = TensorShape::new1d(bs);
         new_deltas_shape.append(input_shape.clone());
@@ -102,9 +106,8 @@ pub struct LayerImpl <N, B, O, L>
           O: Optimizer<N, B>
 {
     layer: L,
-    backend: B,
-    optimizer: O,
-    _m: PhantomData<fn(N)>,
+    initialized: bool,
+    _m: PhantomData<fn(N, B, O)>,
 }
 
 impl <N, B, O, L> LayerImpl<N, B, O, L> 
@@ -112,19 +115,16 @@ impl <N, B, O, L> LayerImpl<N, B, O, L>
           O: Optimizer<N, B>,
           L: Layer<N, B> + Optimizable<N, B, O>
 {
-    pub fn new(b: B, o: O, mut layer: L) -> Self {
-        layer.init(&b);
-
+    pub fn new(layer: L) -> Self {
         Self {
-            backend: b,
-            optimizer: o,
             layer,
+            initialized: false,
             _m: Default::default(),
         }
     }
 }
 
-impl <N, B, O, L> AbstractLayer<N, B> for LayerImpl<N, B, O, L> 
+impl <N, B, O, L> AbstractLayer<N, B, O> for LayerImpl<N, B, O, L> 
     where B: Backend<N>,
           O: Optimizer<N, B>,
           L: Layer<N, B> + Optimizable<N, B, O>
@@ -132,20 +132,25 @@ impl <N, B, O, L> AbstractLayer<N, B> for LayerImpl<N, B, O, L>
     type Context = CommonLayerContext<N, B>;
 
     #[inline]
-    fn forward(&mut self, inputs: &B::Tensor, ctx: &mut Self::Context) {
+    fn forward(&mut self, backend: &B, inputs: &B::Tensor, ctx: &mut Self::Context) {
+        if !self.initialized {
+            self.initialized = true;
+            self.layer.init(&backend);
+        }
+
         ctx.update_outputs_bs(inputs.shape().get(0), &self.layer.output_shape());
-        self.layer.forward(&self.backend, &mut ctx.outputs, inputs);
+        self.layer.forward(&backend, &mut ctx.outputs, inputs);
     }
 
     #[inline]
-    fn backward(&mut self, deltas: &B::Tensor, ctx: &mut Self::Context) {
+    fn backward(&mut self, backend: &B, deltas: &B::Tensor, ctx: &mut Self::Context) {
         ctx.update_deltas_bs(deltas.shape().get(0), &self.layer.input_shape());
-        self.layer.backward(&self.backend, &mut ctx.deltas, deltas, &ctx.outputs);
+        self.layer.backward(&backend, &mut ctx.deltas, deltas, &ctx.outputs);
     }
 
     #[inline]
-    fn update(&mut self, inputs: &B::Tensor, deltas: &B::Tensor, _ctx: &mut Self::Context) {
-        self.layer.calc_gradients(&self.backend, inputs, deltas);
-        self.layer.optimize(&self.backend, &self.optimizer);
+    fn update(&mut self, backend: &B, optimizer: &O, inputs: &B::Tensor, deltas: &B::Tensor, _ctx: &mut Self::Context) {
+        self.layer.calc_gradients(&backend, inputs, deltas);
+        self.layer.optimize(&backend, &optimizer);
     }
 }
