@@ -541,6 +541,22 @@ impl BackendMul<f32> for Native {
     }
 }
 
+
+impl BackendCopy<f32> for Native {
+    fn copy(&self, dst: &mut Self::Tensor, a: &Self::Tensor) {
+        let size = dst.shape().size();
+
+        assert!(a.shape() == dst.shape());
+
+        let a_s = &a.read()[0 .. size];
+        let dst_s = &mut dst.write()[0 .. size];
+
+        for i in 0 .. size {
+            dst_s[i] = a_s[i];
+        }
+    }
+}
+
 impl BackendMaximum<f32> for Native {
     fn maximum(&self, dst: &mut Self::Tensor, a: &Self::Tensor) {
         let dst_size = dst.shape().size();
@@ -572,6 +588,80 @@ impl BackendAdam<f32> for Native {
             dst_s[i] += lr * moms_s[i] / (vels_s[i].sqrt() + eps)
         }
     }
+}
+
+impl BackendSoftmax<f32> for Native {
+    fn softmax(&self, y: &mut Self::Tensor, x: &Self::Tensor) {
+        let y_shape = y.shape();
+        let x_shape = x.shape();
+        let size = y_shape.size();
+        let axis = y_shape.last_axis() as usize;
+
+        assert!(y_shape == x_shape);
+
+        let x_s = &x.read()[0 .. size];
+        let y_s = &mut y.write()[0 .. size];
+
+        // copy x to y
+        for i in 0..size {
+            y_s[i] = x_s[i];
+        }
+
+        for i in (0..size).step_by(axis as usize) {
+            assert!(i + (axis - 1) < size);
+
+            // max(x)
+            let mut max_x = std::f32::NEG_INFINITY;
+            for j in 0..axis {
+                let val = x_s[i + j];
+                if val > max_x {
+                    max_x = val;
+                }
+            }
+
+            // exp(x - max(x))
+            for j in 0..axis {
+                let offset = i + j;
+                y_s[offset] = (y_s[offset] - max_x).exp();
+            }
+
+            // 1/sum(ex)
+            let mut sum = 0.0;
+            for j in 0..axis {
+                sum += y_s[i + j];
+            }
+            let rsum = 1.0 / sum;
+
+            // ex * (1/sum(ex))
+            for j in 0..axis {
+                y_s[i + j] *= rsum;
+            }
+        }
+    }
+}
+
+
+#[test]
+fn test_softmax() {
+    let bac = Native;
+    let mut a = NativeTensorF32::new((3, 3));
+    let mut b = NativeTensorF32::new((3, 3));
+
+    bac.load_tensor_u8(&mut a, &[
+        1,2,3,
+        4,5,6,
+        7,8,9,
+    ]);
+
+    bac.softmax(&mut b, &a);
+
+    assert!(
+        b.read() == &[
+            0.09003057, 0.24472847, 0.66524096,  
+            0.09003057, 0.24472847, 0.66524096, 
+            0.09003057, 0.24472847, 0.66524096,
+        ]
+    );
 }
 
 

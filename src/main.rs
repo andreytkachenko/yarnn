@@ -40,7 +40,7 @@ pub type DenseModelContext<N, B> = ChainContext<N, B,
 >;
 
 pub struct DenseModel<N, B, O> 
-    where B: Backend<N> + BackendReLu<N> + BackendGemm<N> + BackendBias<N>,
+    where B: Backend<N> + BackendReLu<N> + BackendGemm<N> + BackendBias<N> + BackendSoftmax<N>,
           O: Optimizer<N, B>,
 {
     inner: Chain<N, B, O,
@@ -49,14 +49,14 @@ pub struct DenseModel<N, B, O>
             LayerImpl<N, B, O, ReLu<N, B>>,
             Chain<N, B, O,
                 LayerImpl<N, B, O, Linear<N, B, O>>,
-                LayerImpl<N, B, O, ReLu<N, B>>,
+                LayerImpl<N, B, O, Softmax<N, B>>,
             >
         >
     >
 }
 
 impl<N, B, O> DenseModel<N, B, O> 
-    where B: Backend<N> + BackendReLu<N> + BackendGemm<N> + BackendBias<N>,
+    where B: Backend<N> + BackendReLu<N> + BackendGemm<N> + BackendBias<N> + BackendSoftmax<N>,
           O: Optimizer<N, B>,
 {
     pub fn new(input_size: u32, output_size: u32, hidden_count: u32) -> Self {
@@ -78,7 +78,7 @@ impl<N, B, O> DenseModel<N, B, O>
                                 units: output_size,
                                 ..Default::default()
                             })),
-                        LayerImpl::new(ReLu::create((output_size, ).into(), Default::default()))
+                        LayerImpl::new(Softmax::create((output_size, ).into(), Default::default()))
                     )
                 )
             )
@@ -87,7 +87,7 @@ impl<N, B, O> DenseModel<N, B, O>
 }
 
 impl<N, B, O> AbstractLayer<N, B, O> for DenseModel<N, B, O> 
-    where B: Backend<N> + BackendReLu<N> + BackendGemm<N> + BackendBias<N>,
+    where B: Backend<N> + BackendReLu<N> + BackendGemm<N> + BackendBias<N> + BackendSoftmax<N>,
           O: Optimizer<N, B>
 {
     type Context = DenseModelContext<N, B>;

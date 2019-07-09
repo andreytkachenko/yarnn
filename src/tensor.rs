@@ -63,49 +63,56 @@ impl fmt::Display for TensorShape {
     }
 }
 
-impl TensorShape {
+impl TensorShape {    
+    #[inline]
     pub fn zero() -> Self {
         TensorShape {
             shape: [0, 0, 0, 0],
             dims: 0,
         }
     }
-
+    
+    #[inline]
     pub fn new0d() -> Self {
         TensorShape {
             shape: [1, 0, 0, 0],
             dims: 0,
         }
     }
-    
+        
+    #[inline]
     pub fn new1d(w: u32) -> Self {
         TensorShape {
             shape: [w, 0, 0, 0],
             dims: 1,
         }
     }
-
+    
+    #[inline]
     pub fn new2d(h: u32, w: u32) -> Self {
         TensorShape {
             shape: [h, w, 0, 0],
             dims: 2,
         }
     }
-    
+        
+    #[inline]
     pub fn new3d(b: u32, h: u32, w: u32) -> Self {
         TensorShape {
             shape: [b, h, w, 0],
             dims: 3,
         }
     }
-    
+        
+    #[inline]
     pub fn new4d(b: u32, c: u32, h: u32, w: u32) -> Self {
         TensorShape {
             shape: [b, c, h, w],
             dims: 4,
         }
     }
-
+    
+    #[inline]
     pub fn iter(&self) -> TensorShapeIter<'_> {
         TensorShapeIter {
             shape: self,
@@ -126,11 +133,13 @@ impl TensorShape {
 
         self
     }
-
+    
+    #[inline]
     pub fn get(&self, index: usize) -> u32 {
         self.shape[index]
     }
-
+    
+    #[inline]
     pub fn set(&mut self, index: usize, val: u32) {
         self.shape[index] = val;
     }
@@ -151,7 +160,8 @@ impl TensorShape {
             dims
         }
     }
-
+    
+    #[inline]
     pub fn size(&self) -> usize {
         let mut product = 1;
         
@@ -176,8 +186,14 @@ impl TensorShape {
         TensorShape { shape: strides, dims: self.dims }
     }
 
+    #[inline]
     pub fn as_slice(&self) -> &[u32] {
         &self.shape[0..self.dims]
+    }
+    
+    #[inline]
+    pub fn last_axis(&self) -> u32 {
+        self.shape[self.dims - 1]
     }
 }
 

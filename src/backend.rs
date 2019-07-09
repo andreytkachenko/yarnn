@@ -210,6 +210,16 @@ impl <'a, N, T: BackendMul<N>> BackendMul<N> for &'a T {
     }
 }
 
+pub trait BackendCopy<N>: Backend<N> {
+    fn copy(&self, dst: &mut Self::Tensor, a: &Self::Tensor);
+}
+
+impl <'a, N, T: BackendCopy<N>> BackendCopy<N> for &'a T {
+    #[inline]
+    fn copy(&self, dst: &mut Self::Tensor, a: &Self::Tensor) {
+        (**self).copy(dst, a)
+    }
+}
 
 pub trait BackendMaximum<N>: Backend<N> {
     fn maximum(&self, dst: &mut Self::Tensor, a: &Self::Tensor);
@@ -230,5 +240,16 @@ impl <'a, N, T: BackendAdam<N>> BackendAdam<N> for &'a T {
     #[inline]
     fn adam_p(&self, dst: &mut Self::Tensor, lr: N, moms: &Self::Tensor, vels: &Self::Tensor, eps: N) {
         (**self).adam_p(dst, lr, moms, vels, eps)
+    }
+}
+
+pub trait BackendSoftmax<N>: BackendCopy<N> {
+    fn softmax(&self, y: &mut Self::Tensor, x: &Self::Tensor);
+}
+
+impl <'a, N, T: BackendSoftmax<N>> BackendSoftmax<N> for &'a T {
+    #[inline]
+    fn softmax(&self, y: &mut Self::Tensor, x: &Self::Tensor) {
+        (**self).softmax(y, x)
     }
 }
