@@ -56,7 +56,7 @@ impl<N, B> Sgd<N, B>
 impl<N, B: Backend<N> + BackendScale<N> + BackendAxpy<N> + BackendAdd<N>> Optimizer<N, B> for Sgd<N, B> {
     type Context = SgdContext<N, B>;
 
-    fn update_params(&self, backend: &B, ctx: &mut Self::Context, params: &mut B::Tensor, grads: &B::Tensor) {
+    fn update_params(&self, backend: &B, ctx: &mut Self::Context, params: &mut B::Tensor, grads: &mut B::Tensor) {
         // m = momentum * m - lr * grads
         backend.scale(&mut ctx.moments, backend.scalar_f32(self.momentum));
         backend.axpy(&mut ctx.moments, backend.scalar_f32(-self.learning_rate), grads);

@@ -124,12 +124,6 @@ impl <N, B, O> Optimizable<N, B, O> for Conv2d<N, B, O>
         assert_eq!(x.shape().dims, 4);
 
         backend.conv2d_backward_filter(&mut self.filters.grads, x, dy, &self.conv_info);
-
-        // let mut vec = vec![0.0f32; self.filters.grads.shape().size()];
-        // backend.store_tensor_f32(&self.filters.grads, &mut vec);
-
-        // println!("{:?}", vec);
-
         let prescaler = 1.0 / x.shape().get(0) as f32;
 
         backend.scale(&mut self.filters.grads, backend.scalar_f32(prescaler));
@@ -137,7 +131,7 @@ impl <N, B, O> Optimizable<N, B, O> for Conv2d<N, B, O>
 
     #[inline]
     fn optimize(&mut self, backend: &B, optimizer: &O) {
-        optimizer.update_params(backend, &mut self.filters.ctx, &mut self.filters.params, &self.filters.grads);
+        optimizer.update_params(backend, &mut self.filters.ctx, &mut self.filters.params, &mut self.filters.grads);
 
         if self.use_biases {
             unimplemented!()

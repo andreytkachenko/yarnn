@@ -56,7 +56,7 @@ impl<N, B: Backend<N>> RMSProp<N, B> {
 impl<N, B: Backend<N> + BackendAdam<N>> Optimizer<N, B> for RMSProp<N, B> {
     type Context = RMSPropContext<N, B>;
 
-    fn update_params(&self, backend: &B, ctx: &mut Self::Context, params: &mut B::Tensor, grads: &B::Tensor) {
+    fn update_params(&self, backend: &B, ctx: &mut Self::Context, params: &mut B::Tensor, grads: &mut B::Tensor) {
         // new_a = self.rho * a + (1. - self.rho) * K.square(g)
         backend.scale(&mut ctx.accum, backend.scalar_f32(self.rho));
         backend.axpys(&mut ctx.accum, backend.scalar_f32(1.0 - self.rho), grads);

@@ -70,11 +70,14 @@ fn main() {
 
     let backend = Native;
     // let optimizer = Sgd::new(0.1, 0.01, true);
-    let optimizer = Adam::default();
+    let optimizer = WeightDecay::new(0.001, Adam::default());
+    // let optimizer = Adam::default();
     
     // let mut model = DenseModel::new(784, 10, 16);
-    let mut model = DenseModel::new(28, 28, 1);
+    let mut model = ConvModel::new(28, 28, 1);
+
     println!("{}", &model);
+
     let mut train_ctx = Default::default();
     let mut test_ctx = Default::default();
 

@@ -45,6 +45,16 @@ pub trait AbstractLayer<N, B: Backend<N>, O: Optimizer<N, B>>: std::fmt::Display
     fn forward(&mut self, backend: &B, inputs: &B::Tensor, ctx: &mut Self::Context);
     fn backward(&mut self, backend: &B, deltas: &B::Tensor, inputs: &B::Tensor, ctx: &mut Self::Context);
     fn update(&mut self, backend: &B, optimizer: &O, inputs: &B::Tensor, deltas: &B::Tensor, ctx: &mut Self::Context);
+    
+    #[inline]
+    fn add_layer<L: Layer<N, B>>(self, cfg: L::Config) -> crate::layers::Chain<N, B, O, Self, LayerImpl<N, B, O, L>> 
+        where Self: Sized
+    {
+        crate::layers::Chain::new(
+            self,
+            LayerImpl::new(L::create(().into(), cfg)),
+        )
+    }
 }
 
 pub trait LayerContext<N, B: Backend<N>>: Default {

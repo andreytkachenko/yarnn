@@ -70,7 +70,7 @@ impl<N, B: Backend<N>> Adam<N, B> {
 impl<N, B: Backend<N> + BackendAdam<N>> Optimizer<N, B> for Adam<N, B> {
     type Context = AdamContext<N, B>;
 
-    fn update_params(&self, backend: &B, ctx: &mut Self::Context, params: &mut B::Tensor, grads: &B::Tensor) {
+    fn update_params(&self, backend: &B, ctx: &mut Self::Context, params: &mut B::Tensor, grads: &mut B::Tensor) {
         let iter = self.iteration.get();
         let t = iter + 1.0;
         self.iteration.set(iter + 0.25);
