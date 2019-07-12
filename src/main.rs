@@ -1,5 +1,5 @@
 #![feature(specialization, trait_alias)]
-
+#![recursion_limit="128"]
 
 pub mod layer;
 pub mod layers;
@@ -18,6 +18,7 @@ pub mod params;
 
 mod conv_model;
 mod dense_model;
+mod vgg_model;
 
 #[macro_use]
 mod macros;

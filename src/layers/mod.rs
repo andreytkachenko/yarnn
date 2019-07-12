@@ -5,6 +5,7 @@ mod relu;
 mod softmax;
 mod avgpool2d;
 mod maxpool2d;
+mod zeropadding2d;
 mod conv2d;
 mod flatten;
 
@@ -17,3 +18,4 @@ pub use self::conv2d::*;
 pub use self::avgpool2d::*;
 pub use self::maxpool2d::*;
 pub use self::flatten::*;
+pub use self::zeropadding2d::*;
