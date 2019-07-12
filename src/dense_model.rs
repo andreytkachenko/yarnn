@@ -3,7 +3,7 @@ use crate::layer::*;
 use crate::model;
 
 model! {
-    DenseModel (h: u32, w: u32, c: u32) {
+    DenseModel (h: u32, w: u32, _c: u32) {
         input_shape: (h * w),
         layers: {
             Flatten<N, B>,

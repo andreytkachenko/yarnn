@@ -1,4 +1,4 @@
-use crate::tensor::{Tensor, TensorShape};
+use crate::tensor::TensorShape;
 use crate::layer::Layer;
 use crate::backend::{Backend, PaddingKind, BackendMaxPool2d, Conv2dInfo};
 use core::marker::PhantomData;

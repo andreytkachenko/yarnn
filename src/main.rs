@@ -30,7 +30,7 @@ use self::tensor::Tensor;
 use self::loss::Loss;
 use self::losses::CrossEntropyLoss;
 use mnist::{Mnist, MnistBuilder};
-use crate::conv_model::*;
+// use crate::conv_model::*;
 use crate::dense_model::*;
 
 

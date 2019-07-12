@@ -1,4 +1,4 @@
-use crate::tensor::{Tensor, TensorShape};
+use crate::tensor::TensorShape;
 use crate::backend::{Backend, BackendCopy};
 use crate::layer::Layer;
 use std::marker::PhantomData;

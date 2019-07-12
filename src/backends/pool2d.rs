@@ -3,9 +3,6 @@ pub fn maxpool2d(y: &mut [f32], x: &[f32],
                  x_rows: isize, x_cols: isize, 
                  w_rows: isize, w_cols: isize, 
                  s_row: isize, s_col: isize) {
-    
-    // let y_rows = (x_rows - w_rows) / s_row + 1;
-    // let y_cols = (x_cols - w_cols) / s_col + 1;
 
     let y = &mut y[0..(y_rows * y_cols) as usize];
     let x = &x[0..(x_rows * x_cols) as usize];
@@ -37,9 +34,6 @@ pub fn maxpool2d_backward(dx: &mut [f32], x: &[f32], dy: &[f32],
                        w_rows: isize, w_cols: isize, 
                        s_row: isize, s_col: isize) 
 {
-    // let y_cols = (x_cols - 1) * s_col + w_cols;
-    // let y_rows = (x_rows - 1) * s_row + w_rows;
-
     let dx = &mut dx[0..(x_rows * x_cols) as usize];
     let x = &x[0..(x_rows * x_cols) as usize];
     let dy = &dy[0..(y_rows * y_cols) as usize];
@@ -67,6 +61,7 @@ pub fn maxpool2d_backward(dx: &mut [f32], x: &[f32], dy: &[f32],
     }
 }
 
+#[allow(dead_code)]
 pub fn avgpool2d(y: &mut [f32], x: &[f32],
                  x_rows: isize, x_cols: isize, 
                  w_rows: isize, w_cols: isize, 
@@ -98,16 +93,13 @@ pub fn avgpool2d(y: &mut [f32], x: &[f32],
     }
 }
 
-
+#[allow(dead_code)]
 pub fn avgpool2d_backward(dx: &mut [f32], x: &[f32], dy: &[f32],
                           x_rows: isize, x_cols: isize,
                           y_rows: isize, y_cols: isize,
                           w_rows: isize, w_cols: isize, 
                           s_row: isize, s_col: isize) 
 {
-    // let y_cols = (x_cols - 1) * s_col + w_cols;
-    // let y_rows = (x_rows - 1) * s_row + w_rows;
-
     let dx = &mut dx[0..(x_rows * x_cols) as usize];
     let x = &x[0..(x_rows * x_cols) as usize];
     let dy = &dy[0..(y_rows * y_cols) as usize];

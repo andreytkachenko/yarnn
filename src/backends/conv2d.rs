@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 pub fn valid_conv2d(y: &mut [f32], x: &[f32], w: &[f32], alpha: f32,
                     x_rows: isize, x_cols: isize, 
                     w_rows: isize, w_cols: isize, 
@@ -31,6 +32,7 @@ pub fn valid_conv2d(y: &mut [f32], x: &[f32], w: &[f32], alpha: f32,
     }
 }
 
+#[allow(dead_code)]
 pub fn valid_xcorr2d(y: &mut [f32], x: &[f32], w: &[f32], alpha: f32,
                      x_rows: isize, x_cols: isize, 
                      w_rows: isize, w_cols: isize, 
@@ -64,6 +66,7 @@ pub fn valid_xcorr2d(y: &mut [f32], x: &[f32], w: &[f32], alpha: f32,
     }
 }
 
+#[allow(dead_code)]
 pub fn full_conv2d(y: &mut [f32], x: &[f32], w: &[f32], alpha: f32,
                    x_rows: isize, x_cols: isize, 
                    w_rows: isize, w_cols: isize, 
@@ -94,6 +97,7 @@ pub fn full_conv2d(y: &mut [f32], x: &[f32], w: &[f32], alpha: f32,
     }
 }
 
+#[allow(dead_code)]
 pub fn full_xcorr2d(y: &mut [f32], x: &[f32], w: &[f32], alpha: f32,
                     x_rows: isize, x_cols: isize, 
                     w_rows: isize, w_cols: isize, 

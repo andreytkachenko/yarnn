@@ -5,11 +5,6 @@ use crate::tensor::{Tensor, TensorShape};
 use core::marker::PhantomData;
 
 
-pub struct LayerInfo<'a> {
-    kind: &'a str,
-    params: usize,
-}
-
 pub trait Layer<N, B: Backend<N>> {
     type Config: Default;
     fn name(&self) -> &str;
@@ -146,9 +141,9 @@ impl <N, B, O, L> std::fmt::Display for LayerImpl<N, B, O, L>
           L: Layer<N, B>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{} -> ", self.layer.input_shape());
-        write!(f, "{}", self.layer.name());
-        writeln!(f, " -> {}", self.layer.output_shape());
+        write!(f, "{} -> ", self.layer.input_shape())?;
+        write!(f, "{}", self.layer.name())?;
+        writeln!(f, " -> {}", self.layer.output_shape())?;
 
         Ok(())
     }

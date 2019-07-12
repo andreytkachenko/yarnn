@@ -40,6 +40,7 @@ macro_rules! sequential {
 #[macro_export]
 macro_rules! sequential_impl {   
     ($p:expr, $t:ty { $($name:ident : $val:expr),* }) => {{
+        #[allow(unused_imports)]
         use std::convert::TryInto;
 
         #[allow(unused_mut)]
@@ -54,6 +55,7 @@ macro_rules! sequential_impl {
     }};
 
     ($p:expr, $t:ty { $($name:ident : $val:expr),* }, $($tt:tt)*) => {{
+        #[allow(unused_imports)]
         use std::convert::TryInto;
 
         #[allow(unused_mut)]
@@ -132,6 +134,7 @@ macro_rules! model_impl {
             where B: $crate::backend::Backend<N> + $trait,
                   O: $crate::optimizer::Optimizer<N, B>
         {
+            #[allow(dead_code)]
             pub fn new($($init)*) -> Self {
                 #[allow(unused_imports)]
                 use $crate::backend::PaddingKind::*;
@@ -152,7 +155,7 @@ macro_rules! model_impl {
         {
             fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
                 writeln!(f, "{} {{", stringify!($name))?;
-                write!(f, "{}", self.inner);
+                write!(f, "{}", self.inner)?;
                 writeln!(f, "}}")?;
 
                 Ok(())

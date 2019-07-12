@@ -621,33 +621,20 @@ impl BackendConv2d<f32> for Native {
         let y_shape = &y.shape().as_slice()[0..4];
         let w_shape = &w.shape().as_slice()[0..3];
 
-        let tmp_x = x.shape().default_strides();
-        let tmp_y = y.shape().default_strides();
-        let tmp_w = w.shape().default_strides();
-
-        let x_strides = &tmp_x.as_slice()[0..4];
-        let y_strides = &tmp_y.as_slice()[0..4];
-        let w_strides = &tmp_w.as_slice()[0..3];
-
         assert_eq!(x_shape[0], y_shape[0]);
 
         let batch_size = x_shape[0] as isize;
         let y_channels = y_shape[1] as isize;
-        let y_height = y_shape[2] as isize;
-        let y_width = y_shape[3] as isize;
-        let y_size = (batch_size * y_channels * y_height * y_width) as usize;
 
         let x_channels = x_shape[1] as isize;
         let x_height = x_shape[2] as isize;
         let x_width = x_shape[3] as isize;
-        let x_size = (batch_size * x_channels * x_height * x_width) as usize;
 
-        let num_filters = w_shape[0] as isize;
         let filter_height = w_shape[1] as isize;
         let filter_width = w_shape[2] as isize;
-        let w_size = (num_filters * filter_height * filter_width) as usize;
+        
         let (stride_y, stride_x) = conv_info.strides;
-        let padding = conv_info.padding;
+        let _padding = conv_info.padding;
 
         self.fill_scalar(y, 0.0);
         conv2d_forward(
@@ -662,13 +649,6 @@ impl BackendConv2d<f32> for Native {
         let dx_shape = &dx.shape().as_slice()[0..4];
         let dy_shape = &dy.shape().as_slice()[0..4];
         let w_shape = &w.shape().as_slice()[0..3];
-        
-        let tmp_dx = dx.shape().default_strides();
-        let tmp_dy = dy.shape().default_strides();
-        let tmp_w = w.shape().default_strides();
-        let dx_strides = &tmp_dx.as_slice()[0..4];
-        let dy_strides = &tmp_dy.as_slice()[0..4];
-        let w_strides = &tmp_w.as_slice()[0..3];
 
         assert_eq!(dx_shape[0], dy_shape[0]);
 
@@ -676,19 +656,13 @@ impl BackendConv2d<f32> for Native {
         let dy_channels = dy_shape[1] as isize;
         let dy_height = dy_shape[2] as isize;
         let dy_width = dy_shape[3] as isize;
-        let dy_size = (batch_size * dy_channels * dy_height * dy_width) as usize;
 
         let dx_channels = dx_shape[1] as isize;
-        let dx_height = dx_shape[2] as isize;
-        let dx_width = dx_shape[3] as isize;
-        let dx_size = (batch_size * dx_channels * dx_height * dx_width) as usize;
 
-        let num_filters = w_shape[0] as isize;
         let filter_height = w_shape[1] as isize;
         let filter_width = w_shape[2] as isize;
-        let w_size = (num_filters * filter_height * filter_width) as usize;
 
-        let padding = conv_info.padding;
+        let _padding = conv_info.padding;
         let (stride_y, stride_x) = conv_info.strides;
 
         self.fill_scalar(dx, 0.0);
@@ -705,14 +679,6 @@ impl BackendConv2d<f32> for Native {
     fn conv2d_backward_filter(&self, dw: &mut Self::Tensor, x: &Self::Tensor, dy: &Self::Tensor, conv_info: &Conv2dInfo) {
         let x_shape = &x.shape().as_slice()[0..4];
         let dy_shape = &dy.shape().as_slice()[0..4];
-        let dw_shape = &dw.shape().as_slice()[0..3];
-        
-        let tmp_x = x.shape().default_strides();
-        let tmp_dy = dy.shape().default_strides();
-        let tmp_dw = dw.shape().default_strides();
-        let x_strides = &tmp_x.as_slice()[0..4];
-        let dy_strides = &tmp_dy.as_slice()[0..4];
-        let dw_strides = &tmp_dw.as_slice()[0..3];
 
         assert_eq!(x_shape[0], dy_shape[0]);
 
@@ -720,19 +686,12 @@ impl BackendConv2d<f32> for Native {
         let dy_channels = dy_shape[1] as isize;
         let dy_height = dy_shape[2] as isize;
         let dy_width = dy_shape[3] as isize;
-        let dy_size = (batch_size * dy_channels * dy_height * dy_width) as usize;
 
         let x_channels = x_shape[1] as isize;
         let x_height = x_shape[2] as isize;
         let x_width = x_shape[3] as isize;
-        let x_size = (batch_size * x_channels * x_height * x_width) as usize;
 
-        let num_filters = dw_shape[0] as isize;
-        let filter_height = dw_shape[1] as isize;
-        let filter_width = dw_shape[2] as isize;
-        let dw_size = (num_filters * filter_height * filter_width) as usize;
-
-        let padding = conv_info.padding;
+        let _padding = conv_info.padding;
         let (stride_y, stride_x) = conv_info.strides;
 
         self.fill_scalar(dw, 0.0);
@@ -806,10 +765,7 @@ impl BackendMaxPool2d<f32> for Native {
 
         let batch_size = x_shape[0] as isize;
         let channels = x_shape[1] as isize;
-
-        let y_rows = dy_shape[2] as isize;
-        let y_cols = dy_shape[3] as isize;
-
+        
         let x_rows = x_shape[2] as isize;
         let x_cols = x_shape[3] as isize;
 
@@ -853,11 +809,11 @@ impl BackendMaxPool2d<f32> for Native {
 }
 
 impl BackendAvgPool2d<f32> for Native {
-    fn avg_pool2d(&self, y: &mut Self::Tensor, x: &Self::Tensor, conv_info: &Conv2dInfo) {
+    fn avg_pool2d(&self, _y: &mut Self::Tensor, _x: &Self::Tensor, _conv_info: &Conv2dInfo) {
         unimplemented!()
     }
 
-    fn avg_pool2d_backprop(&self, dx: &mut Self::Tensor, dy: &Self::Tensor, _x: &Self::Tensor, conv_info: &Conv2dInfo) {
+    fn avg_pool2d_backprop(&self, _dx: &mut Self::Tensor, _dy: &Self::Tensor, _x: &Self::Tensor, _conv_info: &Conv2dInfo) {
         unimplemented!()
     }
 }
