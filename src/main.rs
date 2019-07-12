@@ -73,8 +73,8 @@ fn main() {
     let optimizer = WeightDecay::new(0.001, Adam::default());
     // let optimizer = Adam::default();
     
-    // let mut model = DenseModel::new(784, 10, 16);
-    let mut model = ConvModel::new(28, 28, 1);
+    let mut model = DenseModel::new(28, 28, 1);
+    // let mut model = ConvModel::new(28, 28, 1);
 
     println!("{}", &model);
 
@@ -111,7 +111,7 @@ fn main() {
 
     backend.load_tensor_u8(&mut targets0, &tmp[..]);
 
-    for epoch in 1 ..= 1 {
+    for epoch in 1 ..= 10 {
         println!("epoch {}", epoch);
 
         for step in 0 .. (60000 / BATCH_SIZE) {
