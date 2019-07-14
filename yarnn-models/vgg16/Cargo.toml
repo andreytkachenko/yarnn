@@ -1,0 +1,8 @@
+[package]
+name = "yarnn-model-vgg16"
+version = "0.1.0"
+authors = ["Andrey Tkachenko <andreytkachenko64@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+yarnn = "0.1.0"

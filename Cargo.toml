@@ -1,12 +1,21 @@
-[package]
-name = "poc"
-version = "0.1.0"
-authors = ["Andrey Tkachenko <andreytkachenko64@gmail.com>"]
-edition = "2018"
-build = "build.rs"
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[workspace]
 
-[dependencies]
-mnist = "0.4.0"
-rand = "0.7.0"
-rand_distr = "0.2.1"
+members = [
+    "yarnn",
+    "yarnn-native-blas",
+    
+    "yarnn-models/mnist",
+    "yarnn-models/vgg16",
+    
+    "yarnn-examples/mnist",
+    # "yarnn-examples/mnist-wasm",
+    # "yarnn-examples/mnist-blas",
+    "yarnn-examples/vgg16-demo",
+]
+
+[patch.crates-io]
+yarnn = { path = './yarnn' }
+yarnn-native-blas = { path = './yarnn-native-blas' }
+yarnn-model-mnist = { path = './yarnn-models/mnist' }
+yarnn-model-vgg16 = { path = './yarnn-models/vgg16' }
+

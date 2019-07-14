@@ -1,0 +1,9 @@
+[package]
+name = "yarnn"
+version = "0.1.0"
+authors = ["Andrey Tkachenko <andreytkachenko64@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+rand = "0.7.0"
+rand_distr = "0.2.1"

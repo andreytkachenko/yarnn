@@ -1,0 +1,9 @@
+[package]
+name = "yarnn-example-mnist-blas"
+version = "0.1.0"
+authors = ["Andrey Tkachenko <andreytkachenko64@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+mnist = "0.4.0"
+yarnn = "0.1.0"
