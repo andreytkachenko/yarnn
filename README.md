@@ -1,5 +1,3 @@
-# [ W. I. P. ]
-
 ## Yet Another Rust Neural Network framework aka YARNN
 Inspired by `darknet` and `leaf`
 
