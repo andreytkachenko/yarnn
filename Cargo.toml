@@ -2,13 +2,13 @@
 
 members = [
     "yarnn",
-    "yarnn-native-blas",
+    # "yarnn-native-blas",
     
     "yarnn-models/mnist",
     "yarnn-models/vgg16",
     
     "yarnn-examples/mnist",
-    # "yarnn-examples/mnist-wasm",
+    "yarnn-examples/mnist-wasm",
     # "yarnn-examples/mnist-blas",
     "yarnn-examples/vgg16-demo",
 ]

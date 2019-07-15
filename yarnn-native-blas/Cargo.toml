@@ -6,6 +6,7 @@ edition = "2018"
 build = "build.rs"
 
 [dependencies]
+yarnn = "0.1.0"
 openblas-src = {version = "0.7.0", features = ["system"]}
 blas = "0.20.0"
 cblas = "0.2.0"

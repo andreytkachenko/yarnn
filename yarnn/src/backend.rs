@@ -340,3 +340,14 @@ impl <'a, N, T: BackendAvgPool2d<N>> BackendAvgPool2d<N> for &'a T {
         (**self).avg_pool2d_backprop(dx, dy, x, conv_info)
     }
 }
+
+pub trait BackendPaddingCopy2d<N>: Backend<N> {
+    fn copy_with_padding2d(&self, y: &mut Self::Tensor, x: &Self::Tensor, y_paddings: (u32, u32), x_paddings: (u32, u32));
+}
+
+impl <'a, N, T: BackendPaddingCopy2d<N>> BackendPaddingCopy2d<N> for &'a T {
+    #[inline]
+    fn copy_with_padding2d(&self, y: &mut Self::Tensor, x: &Self::Tensor, y_paddings: (u32, u32), x_paddings: (u32, u32)) {
+        (**self).copy_with_padding2d(y, x, y_paddings, x_paddings)
+    }
+}

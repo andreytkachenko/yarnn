@@ -1,3 +1,10 @@
+mod kernel_3x3;
+mod kernel_5x5;
+
+pub use self::kernel_3x3::*;
+pub use self::kernel_5x5::*;
+
+
 #[allow(dead_code)]
 pub fn valid_conv2d(y: &mut [f32], x: &[f32], w: &[f32], alpha: f32,
                     x_rows: isize, x_cols: isize, 
@@ -127,6 +134,7 @@ pub fn full_xcorr2d(y: &mut [f32], x: &[f32], w: &[f32], alpha: f32,
         }
     }
 }
+
 
 pub fn conv2d_forward(y: &mut [f32], x: &[f32], w: &[f32],
                   bs: isize, x_channels: isize, y_channels: isize,
