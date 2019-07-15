@@ -1,7 +1,14 @@
 [package]
 name = "yarnn"
+description = "Yet Another rust Neural Network framework"
 version = "0.1.0"
 authors = ["Andrey Tkachenko <andreytkachenko64@gmail.com>"]
+keywords = ["deep-learning", "neural-networks", "machine-learning", "framework"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/andreytkachenko/yarnn"
+homepage = "https://github.com/andreytkachenko/yarnn"
+documentation = "https://github.com/andreytkachenko/yarnn"
+readme = "../README.md"
 edition = "2018"
 
 [dependencies]
