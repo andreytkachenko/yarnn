@@ -1,6 +1,7 @@
-use crate::tensor::TensorShape;
+use crate::tensor::{Tensor, TensorShape};
 use crate::backend::{Backend, BackendSigmoid};
-use crate::layer::Layer;
+use crate::layer::{Layer, LayerExt, DefaultLayerContext};
+use crate::optimizer::Optimizer;
 use core::marker::PhantomData;
 
 #[derive(Default)]
@@ -13,20 +14,14 @@ pub struct Sigmoid<N, B>
     _x: PhantomData<fn(N, B)>,
 }
 
-impl <N, B> Layer<N, B> for Sigmoid<N, B> 
-    where B: Backend<N> + BackendSigmoid<N>
-{
-    type Config = SigmoidConfig;
-    
+impl <N, B, O> Layer<N, B, O> for Sigmoid<N, B> 
+    where B: Backend<N> + BackendSigmoid<N>,
+          O: Optimizer<N, B>
+{   
+    type Context = DefaultLayerContext<N, B>;
+
     fn name(&self) -> &str {
         "Sigmoid"
-    }
-    
-    fn create(input_shape: TensorShape, _cfg: Self::Config) -> Self {
-        Sigmoid {
-            input_shape,
-            _x: Default::default()
-        }
     }
 
     #[inline]
@@ -35,12 +30,30 @@ impl <N, B> Layer<N, B> for Sigmoid<N, B>
     }
 
     #[inline]
-    fn forward(&self, backend: &B, y: &mut B::Tensor, x: &B::Tensor) {
-        backend.sigmoid(y, x);
+    fn forward(&self, backend: &B, x: &B::Tensor, ctx: &mut Self::Context) {
+        ctx.update_outputs_shape(x.shape().get(0), &self.input_shape);
+        
+        backend.sigmoid(&mut ctx.outputs, x);
     }
 
     #[inline]
-    fn backward(&self, backend: &B, dx: &mut B::Tensor, dy: &B::Tensor, _x: &B::Tensor, y: &B::Tensor) {
-        backend.sigmoid_grad(dx, y, dy);
+    fn backward(&mut self, backend: &B, dy: &B::Tensor, _: &B::Tensor, ctx: &mut Self::Context) {
+        ctx.update_deltas_shape(dy.shape().get(0), &self.input_shape);
+
+        backend.sigmoid_grad(&mut ctx.deltas, &ctx.outputs, dy);
+    }
+}
+
+impl <N, B, O> LayerExt<N, B, O> for Sigmoid<N, B> 
+    where B: Backend<N> + BackendSigmoid<N>,
+          O: Optimizer<N, B>
+{
+    type Config = SigmoidConfig;
+    
+    fn create(input_shape: TensorShape, _cfg: Self::Config) -> Self {
+        Sigmoid {
+            input_shape,
+            _x: Default::default()
+        }
     }
 }

@@ -20,8 +20,3 @@ impl <'a, N, B: Backend<N>, O: Optimizer<N, B>> Optimizer<N, B> for &'a O {
         (**self).update_params(backend, ctx, params, grads)
     }
 }
-
-pub trait Optimizable<N, B: Backend<N>, O: Optimizer<N, B>> {
-    fn calc_gradients(&mut self, backend: &B, inputs: &B::Tensor, deltas: &B::Tensor);
-    fn optimize(&mut self, backend: &B, optimizer: &O);
-}

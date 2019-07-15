@@ -1,6 +1,7 @@
-use crate::tensor::TensorShape;
-use crate::layer::Layer;
+use crate::tensor::{TensorShape, Tensor};
+use crate::layer::{Layer, LayerExt, DefaultLayerContext};
 use crate::backend::{Backend, PaddingKind, BackendMaxPool2d, Conv2dInfo};
+use crate::optimizer::Optimizer;
 use core::marker::PhantomData;
 
 pub struct MaxPool2dConfig {
@@ -25,29 +26,16 @@ pub struct MaxPool2d<N, B>
     _m: PhantomData<fn(N, B)>
 }
 
-impl <N, B> Layer<N, B> for MaxPool2d<N, B> 
+impl <N, B, O> Layer<N, B, O> for MaxPool2d<N, B> 
     where B: Backend<N> + BackendMaxPool2d<N>,
+          O: Optimizer<N, B>
 {
-    type Config = MaxPool2dConfig;
-    
+    type Context = DefaultLayerContext<N, B>;
+
     fn name(&self) -> &str {
         "MaxPool2d"
     }
     
-    fn create(input_shape: TensorShape, config: Self::Config) -> Self {
-        assert!(input_shape.dims == 3);
-
-        MaxPool2d {
-            input_shape,
-            conv_info: Conv2dInfo {
-                kernel: config.pool,
-                strides: config.strides.unwrap_or(config.pool),
-                padding: PaddingKind::Valid,
-            },
-            _m: Default::default(),
-        }
-    }
-
     #[inline]
     fn input_shape(&self) -> TensorShape {
         self.input_shape.clone()
@@ -70,12 +58,37 @@ impl <N, B> Layer<N, B> for MaxPool2d<N, B>
     }
     
     #[inline]
-    fn forward(&self, backend: &B, y: &mut B::Tensor, x: &B::Tensor) {
-        backend.max_pool2d(y, x, &self.conv_info)
+    fn forward(&self, backend: &B, x: &B::Tensor, ctx: &mut Self::Context) {
+        ctx.update_outputs_shape(x.shape().get(0), &Layer::<N, B, O>::output_shape(self));
+        
+        backend.max_pool2d(&mut ctx.outputs, x, &self.conv_info)
     }
     
     #[inline]
-    fn backward(&self, backend: &B, dx: &mut B::Tensor, dy: &B::Tensor, x: &B::Tensor, _: &B::Tensor) {
-        backend.max_pool2d_backprop(dx, dy, x, &self.conv_info);
+    fn backward(&mut self, backend: &B, dy: &B::Tensor, x: &B::Tensor, ctx: &mut Self::Context) {
+        ctx.update_deltas_shape(x.shape().get(0), &self.input_shape);
+
+        backend.max_pool2d_backprop(&mut ctx.deltas, dy, x, &self.conv_info);
+    }
+}
+
+impl <N, B, O> LayerExt<N, B, O> for MaxPool2d<N, B> 
+    where B: Backend<N> + BackendMaxPool2d<N>,
+          O: Optimizer<N, B>
+{
+    type Config = MaxPool2dConfig;
+
+    fn create(input_shape: TensorShape, config: Self::Config) -> Self {
+        assert!(input_shape.dims == 3);
+
+        MaxPool2d {
+            input_shape,
+            conv_info: Conv2dInfo {
+                kernel: config.pool,
+                strides: config.strides.unwrap_or(config.pool),
+                padding: PaddingKind::Valid,
+            },
+            _m: Default::default(),
+        }
     }
 }

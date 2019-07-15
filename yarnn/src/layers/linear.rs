@@ -1,8 +1,8 @@
 use crate::tensor::{Tensor, TensorShape};
-use crate::layer::Layer;
+use crate::layer::{Layer, LayerExt, DefaultLayerContext};
 use crate::params::Params;
 use crate::backend::{Backend, BackendGemm, BackendBias, BackendScale};
-use crate::optimizer::{Optimizable, Optimizer};
+use crate::optimizer::Optimizer;
 
 pub struct LinearConfig {
     pub units: u32,
@@ -29,30 +29,25 @@ pub struct Linear<N, B, O>
     biases: Params<N, B, O>,
 }
 
-impl <N, B, O> Layer<N, B> for Linear<N, B, O> 
-    where B: Backend<N> + BackendGemm<N> + BackendBias<N>,
+impl <N, B, O> Layer<N, B, O> for Linear<N, B, O> 
+    where B: Backend<N> + BackendGemm<N> + BackendBias<N> + BackendScale<N>,
           O: Optimizer<N, B>
 {
-    type Config = LinearConfig;
+    type Context = DefaultLayerContext<N, B>;
 
     fn name(&self) -> &str {
         "Linear"
     }
-    
-    fn create(input_shape: TensorShape, cfg: Self::Config) -> Self {
-        assert!(input_shape.dims == 1);
 
-        let inputs = input_shape.get(0);
-
-        Linear {
-            inputs,
-            outputs: cfg.units,
-            use_biases: cfg.biases,
-            weights: Params::new((inputs, cfg.units)),
-            biases: Params::new((cfg.units, )),
+    #[inline]
+    fn param_count(&self) -> usize {
+        if self.use_biases {
+            self.weights.params.shape().size() + self.biases.params.shape().size()
+        } else {
+            self.weights.params.shape().size()
         }
-    }
-
+    } 
+    
     fn init(&mut self, backend: &B) {
         self.weights.init_random(backend, self.inputs + self.outputs);
         if self.use_biases {
@@ -71,33 +66,32 @@ impl <N, B, O> Layer<N, B> for Linear<N, B, O>
     }
     
     #[inline]
-    fn forward(&self, backend: &B, y: &mut B::Tensor, x: &B::Tensor) {
-        backend.matmul(y, x, &self.weights.params);
+    fn forward(&self, backend: &B, x: &B::Tensor, ctx: &mut Self::Context) {
+        ctx.update_outputs_shape(x.shape().get(0), &self.output_shape());
+
+        backend.matmul(&mut ctx.outputs, x, &self.weights.params);
 
         if self.use_biases {
-            backend.bias_add(y, &self.biases.params);
+            backend.bias_add(&mut ctx.outputs, &self.biases.params);
         }
     }
 
     #[inline]
-    fn backward(&self, backend: &B, dx: &mut B::Tensor, dy: &B::Tensor, _: &B::Tensor, _: &B::Tensor) {
-        backend.matmul_nt(dx, dy, &self.weights.params);
+    fn backward(&mut self, backend: &B, dy: &B::Tensor, x: &B::Tensor, ctx: &mut Self::Context) {
+        ctx.update_deltas_shape(x.shape().get(0), &self.input_shape());
+        
+        backend.matmul_nt(&mut ctx.deltas, dy, &self.weights.params);
     }
-}
 
-impl <N, B, O> Optimizable<N, B, O> for Linear<N, B, O>
-    where B: Backend<N> + BackendGemm<N> + BackendBias<N> + BackendScale<N>,
-          O: Optimizer<N, B>
-{
-    fn calc_gradients(&mut self, backend: &B, inputs: &B::Tensor, deltas: &B::Tensor) {
-        let prescaler = 1.0 / inputs.shape().get(0) as f32;
+    fn calc_gradients(&mut self, backend: &B, dy: &B::Tensor, x: &B::Tensor, _ctx: &mut Self::Context) {
+        let prescaler = 1.0 / x.shape().get(0) as f32;
 
-        backend.matmul_tn(&mut self.weights.grads, inputs, deltas);
+        backend.matmul_tn(&mut self.weights.grads, x, dy);
         backend.scale(&mut self.weights.grads, backend.scalar_f32(prescaler));
 
         if self.use_biases {
             backend.scale(&mut self.biases.grads, backend.scalar_f32(prescaler));
-            backend.bias_grad(&mut self.biases.grads, deltas);
+            backend.bias_grad(&mut self.biases.grads, &dy);
         }
     }
 
@@ -107,6 +101,27 @@ impl <N, B, O> Optimizable<N, B, O> for Linear<N, B, O>
 
         if self.use_biases {
             optimizer.update_params(backend, &mut self.biases.ctx, &mut self.biases.params, &mut self.biases.grads);
+        }
+    }
+}
+
+impl <N, B, O> LayerExt<N, B, O> for Linear<N, B, O> 
+    where B: Backend<N> + BackendGemm<N> + BackendBias<N> + BackendScale<N>,
+          O: Optimizer<N, B>
+{
+    type Config = LinearConfig;
+
+    fn create(input_shape: TensorShape, cfg: Self::Config) -> Self {
+        assert!(input_shape.dims == 1);
+
+        let inputs = input_shape.get(0);
+
+        Linear {
+            inputs,
+            outputs: cfg.units,
+            use_biases: cfg.biases,
+            weights: Params::new((inputs, cfg.units)),
+            biases: Params::new((cfg.units, )),
         }
     }
 }

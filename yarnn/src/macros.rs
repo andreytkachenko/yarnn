@@ -8,22 +8,17 @@ macro_rules! sequential_type {
 
 #[macro_export]
 macro_rules! sequential_type_impl {
-    ($t:ty {$($tt:tt)*}) => {
-        $crate::layer::LayerImpl<N, B, O, $t>
-    };
+    ($t:ty {$($tt:tt)*}) => ($t);
+
     ($t:ty {$($xx:tt)*}, $($tt:tt)*) => {
         $crate::layers::Chain<N, B, O, 
-            $crate::layer::LayerImpl<N, B, O, $t>,
-            $crate::sequential_type_impl!($($tt)*)
+            $t, $crate::sequential_type_impl!($($tt)*)
         >
     };
-    ($t:ty) => {
-        $crate::layer::LayerImpl<N, B, O, $t>
-    };
+    ($t:ty) => ($t);
     ($t:ty, $($tt:tt)*) => {
         $crate::layers::Chain<N, B, O, 
-            $crate::layer::LayerImpl<N, B, O, $t>,
-            $crate::sequential_type_impl!($($tt)*)
+            $t, $crate::sequential_type_impl!($($tt)*)
         >
     };
 }
@@ -40,35 +35,29 @@ macro_rules! sequential {
 #[macro_export]
 macro_rules! sequential_impl {   
     ($p:expr, $t:ty { $($name:ident : $val:expr),* }) => {{
-        #[allow(unused_imports)]
-        use core::convert::TryInto;
-
         #[allow(unused_mut)]
-        let mut params = <$t as $crate::layer::Layer<_, _>>::Config::default();
+        let mut params = <$t as $crate::layer::LayerExt<N, B, O>>::Config::default();
         $(
-            params.$name = ($val).try_into().unwrap_or($val);
+            params.$name = core::convert::TryInto::try_into($val).unwrap_or($val);
         )*
 
-        $crate::layer::LayerImpl::new(<$t as $crate::layer::Layer<_, _>>::create(
+        <$t as $crate::layer::LayerExt<N, B, O>>::create(
             $p, params
-        ))
+        )
     }};
 
     ($p:expr, $t:ty { $($name:ident : $val:expr),* }, $($tt:tt)*) => {{
-        #[allow(unused_imports)]
-        use core::convert::TryInto;
-
         #[allow(unused_mut)]
-        let mut params = <$t as $crate::layer::Layer<_, _>>::Config::default();
+        let mut params = <$t as $crate::layer::LayerExt<N, B, O>>::Config::default();
         $(
-            params.$name = ($val).try_into().unwrap_or($val);;
+            params.$name = core::convert::TryInto::try_into($val).unwrap_or($val);
         )*
 
-        let layer = $crate::layer::LayerImpl::new(<$t as $crate::layer::Layer<_, _>>::create(
+        let layer = <$t as $crate::layer::LayerExt<N, B, O>>::create(
             $p, params
-        ));
+        );
 
-        let prev_shape = layer.layer.output_shape();
+        let prev_shape = $crate::layer::Layer::<N, B, O>::output_shape(&layer);
         
         $crate::layers::Chain::new(
             layer, $crate::sequential_impl! { prev_shape, $($tt)* },
@@ -94,12 +83,12 @@ macro_rules! sequential_type_ctx {
 #[macro_export]
 macro_rules! sequential_type_ctx_impl {
     ($t:ty {$($xx:tt)*}) => {
-        $crate::layer::CommonLayerContext<N, B>
+        $crate::layer::DefaultLayerContext<N, B>
     };
 
     ($t:ty {$($xx:tt)*}, $($tt:tt)*) => {
         $crate::layers::ChainContext<N, B,
-            $crate::layer::CommonLayerContext<N, B>,
+            $crate::layer::DefaultLayerContext<N, B>,
             $crate::sequential_type_ctx_impl!($($tt)*)
         >
     };
@@ -149,38 +138,86 @@ macro_rules! model_impl {
             }
         }
 
-        impl<N, B, O> core::fmt::Display for $name<N, B, O> 
-            where B: $crate::backend::Backend<N> + $trait,
-                  O: $crate::optimizer::Optimizer<N, B>
-        {
-            fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-                writeln!(f, "{} {{", stringify!($name))?;
-                write!(f, "{}", self.inner)?;
-                writeln!(f, "}}")?;
+        // impl<N, B, O> core::fmt::Display for $name<N, B, O> 
+        //     where B: $crate::backend::Backend<N> + $trait,
+        //           O: $crate::optimizer::Optimizer<N, B>
+        // {
+        //     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        //         writeln!(f, "{} {{", stringify!($name))?;
+        //         write!(f, "{}", self.inner)?;
+        //         writeln!(f, "}}")?;
 
-                Ok(())
-            }
-        }
+        //         Ok(())
+        //     }
+        // }
 
-        impl<N, B, O> $crate::layer::AbstractLayer<N, B, O> for $name<N, B, O> 
+        impl<N, B, O> $crate::layer::Layer<N, B, O> for $name<N, B, O> 
             where B: $crate::backend::Backend<N> + $trait,
                   O: $crate::optimizer::Optimizer<N, B>
         {
             type Context = ctx::$name<N, B>;
 
             #[inline]
-            fn forward(&mut self, backend: &B, inputs: &B::Tensor, ctx: &mut Self::Context) {
-                $crate::layer::AbstractLayer::forward(&mut self.inner, backend, inputs, ctx)
+            fn name(&self) -> &str {
+                stringify!($name)
+            }
+
+            #[inline]
+            fn init(&mut self, backend: &B) {
+                self.inner.init(backend);
+            }
+
+            #[inline]
+            fn param_count(&self) -> usize {
+                self.inner.param_count()
+            } 
+
+            #[inline]
+            fn input_shape(&self) -> $crate::tensor::TensorShape {
+                self.inner.input_shape()
+            }
+
+            #[inline]
+            fn output_shape(&self) -> $crate::tensor::TensorShape {
+                self.inner.output_shape()
+            }
+
+            #[inline]
+            fn forward(&self, backend: &B, inputs: &B::Tensor, ctx: &mut Self::Context) {
+                self.inner.forward(backend, inputs, ctx);
             }
 
             #[inline]
             fn backward(&mut self, backend: &B, deltas: &B::Tensor, inputs: &B::Tensor, ctx: &mut Self::Context) {
-                $crate::layer::AbstractLayer::backward(&mut self.inner, backend, deltas, inputs, ctx);
+                self.inner.backward(backend, deltas, inputs, ctx);
             }
 
             #[inline]
-            fn update(&mut self, backend: &B, optimizer: &O, inputs: &B::Tensor, deltas: &B::Tensor, ctx: &mut Self::Context) {
-                $crate::layer::AbstractLayer::update(&mut self.inner, backend, optimizer, inputs, deltas, ctx);
+            fn calc_gradients(&mut self, backend: &B, deltas: &B::Tensor, inputs: &B::Tensor, ctx: &mut Self::Context) {
+                self.inner.calc_gradients(backend, deltas, inputs, ctx);
+            }
+
+            #[inline]
+            fn optimize(&mut self, backend: &B, optimizer: &O) {
+                self.inner.optimize(backend, optimizer);
+            }
+
+            fn fmt(&self, f: &mut core::fmt::Formatter, padding: usize) -> core::fmt::Result {
+                writeln!(f, "{}{}[{}] {{",  "", self.name(), self.param_count())?;
+                self.inner.fmt(f, padding + 2)?;
+                write!(f, "}}")?;
+                
+                Ok(())
+            }
+        }
+
+        impl<N, B, O> core::fmt::Display for $name<N, B, O> 
+            where B: $crate::backend::Backend<N> + $trait,
+                  O: $crate::optimizer::Optimizer<N, B>
+        {
+            #[inline]
+            fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+                <Self as $crate::layer::Layer<_, _, _>>::fmt(self, f, 0)
             }
         }
     };
@@ -192,6 +229,7 @@ macro_rules! model {
         mod tmp {
             pub trait BackendDefault<N> = $crate::backend::BackendReLu<N> 
                   + $crate::backend::BackendBias<N>
+                  + $crate::backend::BackendScale<N>
                   + $crate::backend::BackendSigmoid<N>
                   + $crate::backend::BackendSoftmax<N>
                   + $crate::backend::BackendGemm<N>

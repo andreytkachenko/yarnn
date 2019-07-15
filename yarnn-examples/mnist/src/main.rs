@@ -43,6 +43,7 @@ fn main() {
     
     // let mut model = MnistDenseModel::new(28, 28, 1);
     let mut model = MnistConvModel::new(28, 28, 1);
+    model.init(&backend);
 
     println!("{}", &model);
 
@@ -52,7 +53,7 @@ fn main() {
     let loss = CrossEntropyLoss::new();
 
     let Mnist { trn_img, trn_lbl, tst_img, tst_lbl, .. } = MnistBuilder::new()
-        .base_path("../../dataset/mnist")
+        .base_path("./datasets/mnist")
         .label_format_digit()
         .finalize();
 
@@ -101,7 +102,8 @@ fn main() {
             model.forward(&backend, &inputs, &mut train_ctx);
             loss.derivative(&backend, &mut deltas, train_ctx.outputs(), &targets);
             model.backward(&backend, &deltas, &inputs, &mut train_ctx);            
-            model.update(&backend, &optimizer, &inputs, &deltas, &mut train_ctx);
+            model.calc_gradients(&backend, &deltas, &inputs, &mut train_ctx);
+            model.optimize(&backend, &optimizer);
         }
 
         model.forward(&backend, &inputs0, &mut test_ctx);

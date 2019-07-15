@@ -1,12 +1,10 @@
 #![feature(trait_alias)]
 
-
 pub use self::dense::MnistDenseModel;
 pub use self::conv::MnistConvModel;
 
 mod dense {
     use yarnn::model;
-    use yarnn::layer::*;
     use yarnn::layers::*;
 
     model! {
@@ -30,7 +28,6 @@ mod dense {
 
 mod conv {
     use yarnn::model;
-    use yarnn::layer::*;
     use yarnn::layers::*;
     
     model! {

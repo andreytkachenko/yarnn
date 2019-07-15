@@ -1,6 +1,7 @@
-use crate::tensor::TensorShape;
+use crate::tensor::{Tensor, TensorShape};
 use crate::backend::{Backend, BackendReLu};
-use crate::layer::Layer;
+use crate::layer::{Layer, LayerExt, DefaultLayerContext};
+use crate::optimizer::Optimizer;
 use core::marker::PhantomData;
 
 #[derive(Default)]
@@ -13,34 +14,46 @@ pub struct ReLu<N, B>
     _x: PhantomData<fn(N, B)>,
 }
 
-impl <N, B> Layer<N, B> for ReLu<N, B> 
-    where B: Backend<N> + BackendReLu<N>
+impl <N, B, O> Layer<N, B, O> for ReLu<N, B> 
+    where B: Backend<N> + BackendReLu<N>,
+          O: Optimizer<N, B>
 {
-    type Config = ReLuConfig;
-    
+    type Context = DefaultLayerContext<N, B>;
+
     fn name(&self) -> &str {
         "ReLU"
     }
     
-    fn create(input_shape: TensorShape, _cfg: Self::Config) -> Self {
-        ReLu {
-            input_shape,
-            _x: Default::default()
-        }
-    }
-
     #[inline]
     fn input_shape(&self) -> TensorShape {
         self.input_shape.clone()
     }
     
     #[inline]
-    fn forward(&self, backend: &B, y: &mut B::Tensor, x: &B::Tensor) {
-        backend.relu(y, x);
+    fn forward(&self, backend: &B, x: &B::Tensor, ctx: &mut Self::Context) {
+        ctx.update_outputs_shape(x.shape().get(0), &self.input_shape);
+        
+        backend.relu(&mut ctx.outputs, x);
     }
 
     #[inline]
-    fn backward(&self, backend: &B, dx: &mut B::Tensor, dy: &B::Tensor, _x: &B::Tensor, y: &B::Tensor) {
-        backend.relu_grad(dx, y, dy);
+    fn backward(&mut self, backend: &B, dy: &B::Tensor, _: &B::Tensor, ctx: &mut Self::Context) {
+        ctx.update_deltas_shape(dy.shape().get(0), &self.input_shape);
+        
+        backend.relu_grad(&mut ctx.deltas, &ctx.outputs, dy);
+    }
+}
+
+impl <N, B, O> LayerExt<N, B, O> for ReLu<N, B> 
+    where B: Backend<N> + BackendReLu<N>,
+          O: Optimizer<N, B>
+{
+    type Config = ReLuConfig;
+
+    fn create(input_shape: TensorShape, _cfg: Self::Config) -> Self {
+        ReLu {
+            input_shape,
+            _x: Default::default()
+        }
     }
 }

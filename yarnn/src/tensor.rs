@@ -121,8 +121,8 @@ impl TensorShape {
         }
     }
 
-    pub fn append<S: Into<TensorShape>>(&mut self, s: S) -> &mut Self {
-        let s = s.into();
+    pub fn append<S: core::borrow::Borrow<TensorShape>>(&mut self, s: S) -> &mut Self {
+        let s = s.borrow();
         let sd = self.dims;
 
         for i in 0 .. s.dims {

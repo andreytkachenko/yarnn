@@ -1,20 +1,20 @@
 use crate::tensor::{Tensor, TensorShape};
-use crate::layer::Layer;
+use crate::layer::{Layer, LayerExt, DefaultLayerContext};
 use crate::backend::{Backend, PaddingKind, BackendAvgPool2d, Conv2dInfo};
+use crate::optimizer::Optimizer;
+
 use core::marker::PhantomData;
 
 pub struct AvgPool2dConfig {
     pub pool: (u32, u32),
-    pub strides: (u32, u32),
-    pub padding: PaddingKind,
+    pub strides: Option<(u32, u32)>,
 }
 
 impl Default for AvgPool2dConfig {
     fn default() -> Self {
         Self {
             pool: (2, 2),
-            strides: (2, 2),
-            padding: PaddingKind::Valid,
+            strides: None,
         }
     }
 }
@@ -27,27 +27,14 @@ pub struct AvgPool2d<N, B>
     _m: PhantomData<fn(N, B)>
 }
 
-impl <N, B> Layer<N, B> for AvgPool2d<N, B> 
-    where B: Backend<N> + BackendAvgPool2d<N>
+impl <N, B, O> Layer<N, B, O> for AvgPool2d<N, B> 
+    where B: Backend<N> + BackendAvgPool2d<N>,
+          O: Optimizer<N, B>
 {
-    type Config = AvgPool2dConfig;
+    type Context = DefaultLayerContext<N, B>;
 
     fn name(&self) -> &str {
         "AvgPool2d"
-    }
-    
-    fn create(input_shape: TensorShape, config: Self::Config) -> Self {
-        assert!(input_shape.dims == 3);
-
-        AvgPool2d {
-            input_shape,
-            conv_info: Conv2dInfo {
-                kernel: config.pool,
-                strides: config.strides,
-                padding: config.padding,
-            },
-            _m: Default::default(),
-        }
     }
     
     #[inline]
@@ -72,7 +59,11 @@ impl <N, B> Layer<N, B> for AvgPool2d<N, B>
     }
     
     #[inline]
-    fn forward(&self, backend: &B, y: &mut B::Tensor, x: &B::Tensor) {
+    fn forward(&self, backend: &B, x: &B::Tensor, ctx: &mut Self::Context) {
+        ctx.update_outputs_shape(x.shape().get(0), &Layer::<N, B, O>::output_shape(self));
+
+        let y = &mut ctx.outputs;
+
         assert_eq!(y.shape().dims, 4);
         assert_eq!(x.shape().dims, 4);
 
@@ -80,10 +71,35 @@ impl <N, B> Layer<N, B> for AvgPool2d<N, B>
     }
 
     #[inline]
-    fn backward(&self, backend: &B, dx: &mut B::Tensor, dy: &B::Tensor, x: &B::Tensor, _: &B::Tensor) {
+    fn backward(&mut self, backend: &B, dy: &B::Tensor, x: &B::Tensor, ctx: &mut Self::Context) {
+        ctx.update_deltas_shape(x.shape().get(0), &self.input_shape);
+
+        let dx = &mut ctx.deltas;
+
         assert_eq!(dy.shape().dims, 4);
         assert_eq!(dx.shape().dims, 4);
 
         backend.avg_pool2d_backprop(dx, dy, x, &self.conv_info);
+    }
+}
+
+impl <N, B, O> LayerExt<N, B, O> for AvgPool2d<N, B> 
+    where B: Backend<N> + BackendAvgPool2d<N>,
+          O: Optimizer<N, B>
+{
+    type Config = AvgPool2dConfig;
+
+    fn create(input_shape: TensorShape, config: Self::Config) -> Self {
+        assert!(input_shape.dims == 3);
+
+        AvgPool2d {
+            input_shape,
+            conv_info: Conv2dInfo {
+                kernel: config.pool,
+                strides: config.strides.unwrap_or(config.pool),
+                padding: PaddingKind::Valid,
+            },
+            _m: Default::default(),
+        }
     }
 }

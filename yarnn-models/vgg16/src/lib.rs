@@ -1,7 +1,6 @@
 #![feature(trait_alias)]
 
 use yarnn::layers::*;
-use yarnn::layer::*;
 use yarnn::model;
 
 model! {

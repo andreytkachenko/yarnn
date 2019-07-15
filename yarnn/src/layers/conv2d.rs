@@ -1,8 +1,8 @@
 use crate::tensor::{Tensor, TensorShape};
-use crate::layer::Layer;
+use crate::layer::{Layer, LayerExt, DefaultLayerContext};
 use crate::params::Params;
 use crate::backend::{Backend, Conv2dInfo, PaddingKind, BackendBias, BackendConv2d, BackendScale};
-use crate::optimizer::{Optimizable, Optimizer};
+use crate::optimizer::Optimizer;
 
 pub struct Conv2dConfig {
     pub filters: u32,
@@ -36,32 +36,24 @@ pub struct Conv2d<N, B, O>
     biases: Params<N, B, O>,
 }
 
-impl <N, B, O> Layer<N, B> for Conv2d<N, B, O> 
-    where B: Backend<N> + BackendConv2d<N> + BackendBias<N>,
+impl <N, B, O> Layer<N, B, O> for Conv2d<N, B, O> 
+    where B: Backend<N> + BackendConv2d<N> + BackendBias<N> + BackendScale<N>,
           O: Optimizer<N, B>
 {
-    type Config = Conv2dConfig;
+    type Context = DefaultLayerContext<N, B>;
 
     fn name(&self) -> &str {
         "Conv2d"
     }
-    
-    fn create(input_shape: TensorShape, cfg: Self::Config) -> Self {
-        assert!(input_shape.dims == 3);
 
-        Conv2d {
-            input_shape,
-            units: cfg.filters,
-            conv_info: Conv2dInfo {
-                kernel: cfg.kernel,
-                padding: cfg.padding, 
-                strides: cfg.strides,
-            },
-            use_biases: cfg.biases,
-            filters: Params::new((cfg.filters, cfg.kernel.0, cfg.kernel.1)),
-            biases: Params::new((cfg.filters, )),
+    #[inline]
+    fn param_count(&self) -> usize {
+        if self.use_biases {
+            self.filters.params.shape().size() + self.biases.params.shape().size()
+        } else {
+            self.filters.params.shape().size()
         }
-    }
+    } 
     
     fn init(&mut self, backend: &B) {
         self.filters.init_random(backend, self.conv_info.kernel.0 * self.conv_info.kernel.1 + self.filters.params.shape().get(0));
@@ -93,11 +85,12 @@ impl <N, B, O> Layer<N, B> for Conv2d<N, B, O>
     }
     
     #[inline]
-    fn forward(&self, backend: &B, y: &mut B::Tensor, x: &B::Tensor) {
-        assert_eq!(y.shape().dims, 4);
+    fn forward(&self, backend: &B, x: &B::Tensor, ctx: &mut Self::Context) {
         assert_eq!(x.shape().dims, 4);
 
-        backend.conv2d_forward(y, x, &self.filters.params, &self.conv_info);
+        ctx.update_outputs_shape(x.shape().get(0), &self.output_shape());
+
+        backend.conv2d_forward(&mut ctx.outputs, x, &self.filters.params, &self.conv_info);
 
         if self.use_biases {
             unimplemented!();
@@ -106,20 +99,16 @@ impl <N, B, O> Layer<N, B> for Conv2d<N, B, O>
     }
 
     #[inline]
-    fn backward(&self, backend: &B, dx: &mut B::Tensor, dy: &B::Tensor, _: &B::Tensor, _: &B::Tensor) {
+    fn backward(&mut self, backend: &B, dy: &B::Tensor, x: &B::Tensor, ctx: &mut Self::Context) {
         assert_eq!(dy.shape().dims, 4);
-        assert_eq!(dx.shape().dims, 4);
+        
+        ctx.update_deltas_shape(x.shape().get(0), &self.input_shape);
 
-        backend.conv2d_backward_input(dx, dy, &self.filters.params, &self.conv_info);
+        backend.conv2d_backward_input(&mut ctx.deltas, dy, &self.filters.params, &self.conv_info);
     }
-}
 
-impl <N, B, O> Optimizable<N, B, O> for Conv2d<N, B, O>
-    where B: Backend<N> + BackendConv2d<N> + BackendBias<N> + BackendScale<N>,
-          O: Optimizer<N, B>
-{
     #[inline]
-    fn calc_gradients(&mut self, backend: &B, x: &B::Tensor, dy: &B::Tensor) {
+    fn calc_gradients(&mut self, backend: &B, dy: &B::Tensor, x: &B::Tensor, _ctx: &mut Self::Context) {
         assert_eq!(dy.shape().dims, 4);
         assert_eq!(x.shape().dims, 4);
 
@@ -136,6 +125,30 @@ impl <N, B, O> Optimizable<N, B, O> for Conv2d<N, B, O>
         if self.use_biases {
             unimplemented!()
         //     optimizer.update_params(backend, &mut self.biases.ctx, &mut self.biases.params, &self.biases.grads);
+        }
+    }
+}
+
+impl <N, B, O> LayerExt<N, B, O> for Conv2d<N, B, O> 
+    where B: Backend<N> + BackendConv2d<N> + BackendBias<N> + BackendScale<N>,
+          O: Optimizer<N, B>
+{
+    type Config = Conv2dConfig;
+
+    fn create(input_shape: TensorShape, cfg: Self::Config) -> Self {
+        assert!(input_shape.dims == 3);
+
+        Conv2d {
+            input_shape,
+            units: cfg.filters,
+            conv_info: Conv2dInfo {
+                kernel: cfg.kernel,
+                padding: cfg.padding, 
+                strides: cfg.strides,
+            },
+            use_biases: cfg.biases,
+            filters: Params::new((cfg.filters, cfg.kernel.0, cfg.kernel.1)),
+            biases: Params::new((cfg.filters, )),
         }
     }
 }

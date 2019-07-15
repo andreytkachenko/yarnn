@@ -1,6 +1,7 @@
-use crate::tensor::TensorShape;
+use crate::tensor::{Tensor, TensorShape};
 use crate::backend::{Backend, BackendSoftmax};
-use crate::layer::Layer;
+use crate::layer::{Layer, LayerExt, DefaultLayerContext};
+use crate::optimizer::Optimizer;
 use core::marker::PhantomData;
 
 #[derive(Default)]
@@ -13,34 +14,46 @@ pub struct Softmax<N, B>
     _x: PhantomData<fn(N, B)>,
 }
 
-impl <N, B> Layer<N, B> for Softmax<N, B> 
-    where B: Backend<N> + BackendSoftmax<N>
-{
-    type Config = SoftmaxConfig;
-    
+impl <N, B, O> Layer<N, B, O> for Softmax<N, B> 
+    where B: Backend<N> + BackendSoftmax<N>,
+          O: Optimizer<N, B>
+{   
+    type Context = DefaultLayerContext<N, B>;
+
     fn name(&self) -> &str {
         "Softmax"
     }
     
-    fn create(input_shape: TensorShape, _cfg: Self::Config) -> Self {
-        Softmax {
-            input_shape,
-            _x: Default::default()
-        }
-    }
-
     #[inline]
     fn input_shape(&self) -> TensorShape {
         self.input_shape.clone()
     }
 
     #[inline]
-    fn forward(&self, backend: &B, y: &mut B::Tensor, x: &B::Tensor) {
-        backend.softmax(y, x);
+    fn forward(&self, backend: &B, x: &B::Tensor, ctx: &mut Self::Context) {
+        ctx.update_outputs_shape(x.shape().get(0), &self.input_shape);
+
+        backend.softmax(&mut ctx.outputs, x);
     }
 
     #[inline]
-    fn backward(&self, backend: &B, dx: &mut B::Tensor, dy: &B::Tensor, _: &B::Tensor, _: &B::Tensor) {
-        backend.copy(dx, dy);
+    fn backward(&mut self, backend: &B, dy: &B::Tensor, _: &B::Tensor, ctx: &mut Self::Context) {
+        ctx.update_deltas_shape(dy.shape().get(0), &self.input_shape);
+
+        backend.copy(&mut ctx.deltas, dy);
+    }
+}
+
+impl <N, B, O> LayerExt<N, B, O> for Softmax<N, B> 
+    where B: Backend<N> + BackendSoftmax<N>,
+          O: Optimizer<N, B>
+{
+    type Config = SoftmaxConfig;
+
+    fn create(input_shape: TensorShape, _cfg: Self::Config) -> Self {
+        Softmax {
+            input_shape,
+            _x: Default::default()
+        }
     }
 }
