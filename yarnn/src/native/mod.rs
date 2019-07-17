@@ -14,28 +14,72 @@ use core::fmt::Write;
 use rand_distr::{Normal, Distribution};
 
 
-pub struct NativeTensorF32 {
-    shape: TensorShape,
-    ptr: Option<Box<[f32]>>
+pub trait NativeNumber: Copy {
+    fn from_f32(val: f32) -> Self;
+    fn from_f64(val: f64) -> Self;
+    fn from_i64(val: i64) -> Self;
+    fn from_i32(val: i32) -> Self;
+    fn from_i16(val: i16) -> Self;
+    fn from_i8(val: i8) -> Self;
+    fn from_u64(val: u64) -> Self;
+    fn from_u32(val: u32) -> Self;
+    fn from_u16(val: u16) -> Self;
+    fn from_u8(val: u8) -> Self;
 }
 
-impl NativeTensorF32 {
-    pub fn read(&self) -> &[f32] {
+impl NativeNumber for f32 {
+    fn from_f32(val: f32) -> Self { val as f32 }
+    fn from_f64(val: f64) -> Self { val as f32 }
+    fn from_i64(val: i64) -> Self { val as f32 }
+    fn from_i32(val: i32) -> Self { val as f32 }
+    fn from_i16(val: i16) -> Self { val as f32 }
+    fn from_i8(val: i8) -> Self { val as f32 }
+    fn from_u64(val: u64) -> Self { val as f32 }
+    fn from_u32(val: u32) -> Self { val as f32 }
+    fn from_u16(val: u16) -> Self { val as f32 }
+    fn from_u8(val: u8) -> Self { val as f32 }
+}
+
+impl NativeNumber for f64 {
+    fn from_f32(val: f32) -> Self { val as f64 }
+    fn from_f64(val: f64) -> Self { val as f64 }
+    fn from_i64(val: i64) -> Self { val as f64 }
+    fn from_i32(val: i32) -> Self { val as f64 }
+    fn from_i16(val: i16) -> Self { val as f64 }
+    fn from_i8(val: i8) -> Self { val as f64 }
+    fn from_u64(val: u64) -> Self { val as f64 }
+    fn from_u32(val: u32) -> Self { val as f64 }
+    fn from_u16(val: u16) -> Self { val as f64 }
+    fn from_u8(val: u8) -> Self { val as f64 }
+}
+
+pub trait NativeBackend<N: NativeNumber>: Backend<N> + Default {
+    fn read_tensor<'a>(&self, t: &'a Self::Tensor) -> &'a [N];
+    fn write_tensor<'a>(&self, t: &'a mut Self::Tensor) -> &'a mut [N];
+}
+
+pub struct NativeTensor<N: NativeNumber> {
+    shape: TensorShape,
+    ptr: Option<Box<[N]>>
+}
+
+impl<N: NativeNumber> NativeTensor<N> {
+    pub fn read(&self) -> &[N] {
         self.ptr.as_ref().unwrap()
     } 
 
-    pub fn write(&mut self) -> &mut [f32] {
+    pub fn write(&mut self) -> &mut [N] {
         if self.ptr.is_none() {
-            self.ptr = Some(vec![0.0; self.shape.size()].into_boxed_slice());
+            self.ptr = Some(vec![N::from_f32(0.0); self.shape.size()].into_boxed_slice());
         }
 
         return self.ptr.as_mut().unwrap()
     }
 }
 
-impl Tensor<f32> for NativeTensorF32 {
+impl<N: NativeNumber> Tensor<N> for NativeTensor<N> {
     fn new<S: Into<TensorShape>>(shape: S) -> Self {
-        NativeTensorF32 {
+        NativeTensor {
             shape: shape.into(),
             ptr: None,
         }
@@ -46,24 +90,16 @@ impl Tensor<f32> for NativeTensorF32 {
     }
 
     fn resize(&mut self, shape: TensorShape) {
-        self.ptr = if let Some(ptr) = self.ptr.take() {
-            let size = self.shape.size();
-            let raw = Box::into_raw(ptr) as *mut f32;
-            let mut data = unsafe {Vec::from_raw_parts(raw, size, size)};
-            data.resize(shape.size(), 0.0);
-
-            Some(data.into_boxed_slice())
-        } else {
-            None
-        };
+        self.ptr = None;
         self.shape = shape;
     }
 }
 
-pub struct Native;
+#[derive(Default)]
+pub struct Native<N: NativeNumber>(core::marker::PhantomData<N>);
 
-impl Native {
-    fn fmt_tensor(&self, t: &NativeTensorF32, f: &mut String) -> fmt::Result {
+impl<N: NativeNumber + core::fmt::Display> Native<N> {
+    fn fmt_tensor(&self, t: &NativeTensor<N>, f: &mut String) -> fmt::Result {
         let strides = t.shape.default_strides();
         let last_idx = strides.dims - 1;
         writeln!(f, "default stridses {} {}", t.shape.default_strides(), last_idx)?;
@@ -97,8 +133,8 @@ impl Native {
     }
 }
 
-impl Backend<f32> for Native {
-    type Tensor = NativeTensorF32;
+impl Backend<f32> for Native<f32> {
+    type Tensor = NativeTensor<f32>;
 
     fn store_tensor_f32(&self, t: &Self::Tensor, data: &mut [f32]) {
         let size = t.shape().size();
@@ -170,8 +206,19 @@ impl Backend<f32> for Native {
     } 
 }
 
+impl NativeBackend<f32> for Native<f32> {
+    #[inline]
+    fn read_tensor<'a>(&self, t: &'a Self::Tensor) -> &'a [f32] {
+        t.read()
+    }
 
-impl BackendGemm<f32> for Native {
+    #[inline]
+    fn write_tensor<'a>(&self, t: &'a mut Self::Tensor) -> &'a mut [f32] {
+        t.write()
+    }
+}
+
+impl BackendGemm<f32> for Native<f32> {
     fn matmul(&self, dst: &mut Self::Tensor, a: &Self::Tensor, b: &Self::Tensor) {
         let a_shape = a.shape();
         let b_shape = b.shape();
@@ -251,7 +298,7 @@ impl BackendGemm<f32> for Native {
     }
 }
 
-impl BackendSigmoid<f32> for Native {
+impl BackendSigmoid<f32> for Native<f32> {
     fn sigmoid(&self, dst: &mut Self::Tensor, data: &Self::Tensor) {
         let dst_size = dst.shape().size();
 
@@ -281,7 +328,7 @@ impl BackendSigmoid<f32> for Native {
     }
 }
 
-impl BackendReLu<f32> for Native {
+impl BackendReLu<f32> for Native<f32> {
     fn relu(&self, dst: &mut Self::Tensor, data: &Self::Tensor) {
         let dst_size = dst.shape().size();
 
@@ -321,7 +368,7 @@ impl BackendReLu<f32> for Native {
     }
 }
 
-impl BackendBias<f32> for Native {
+impl BackendBias<f32> for Native<f32> {
     fn bias_add(&self, dst: &mut Self::Tensor, biases: &Self::Tensor) {
         let biases_shape = biases.shape();
         let dst_shape = dst.shape().clone();
@@ -391,7 +438,7 @@ impl BackendBias<f32> for Native {
     }
 }
 
-impl BackendScale<f32> for Native {
+impl BackendScale<f32> for Native<f32> {
     fn scale(&self, dst: &mut Self::Tensor, scale: f32) {
         let dst_size = dst.shape().size();
         let dst_s = &mut dst.write()[0 .. dst_size];
@@ -402,7 +449,7 @@ impl BackendScale<f32> for Native {
     }
 }
 
-impl BackendMse<f32> for Native {
+impl BackendMse<f32> for Native<f32> {
     fn scaled_square_diff(&self, dst: &mut Self::Tensor, a: &Self::Tensor, b: &Self::Tensor, scale: f32) {
         let a_size = a.shape().size();
         let b_size = b.shape().size();
@@ -440,7 +487,7 @@ impl BackendMse<f32> for Native {
     }
 }
 
-impl BackendAxpy<f32> for Native {
+impl BackendAxpy<f32> for Native<f32> {
     default fn axpy(&self, dst: &mut Self::Tensor, scale: f32, a: &Self::Tensor) {
         let dst_size = dst.shape().size();
 
@@ -455,7 +502,7 @@ impl BackendAxpy<f32> for Native {
     }
 }
 
-impl BackendAxpys<f32> for Native {
+impl BackendAxpys<f32> for Native<f32> {
     fn axpys(&self, dst: &mut Self::Tensor, scale: f32, a: &Self::Tensor) {
         let dst_size = dst.shape().size();
 
@@ -470,7 +517,7 @@ impl BackendAxpys<f32> for Native {
     }
 }
 
-impl BackendAdd<f32> for Native {
+impl BackendAdd<f32> for Native<f32> {
     fn add(&self, dst: &mut Self::Tensor, a: &Self::Tensor) {
         let dst_size = dst.shape().size();
 
@@ -485,7 +532,7 @@ impl BackendAdd<f32> for Native {
     }
 }
 
-impl BackendSub<f32> for Native {
+impl BackendSub<f32> for Native<f32> {
     fn sub(&self, dst: &mut Self::Tensor, a: &Self::Tensor, b: &Self::Tensor) {
         let a_size = a.shape().size();
         let b_size = b.shape().size();
@@ -505,7 +552,7 @@ impl BackendSub<f32> for Native {
     
 }
 
-impl BackendMul<f32> for Native {
+impl BackendMul<f32> for Native<f32> {
     fn mul(&self, dst: &mut Self::Tensor, a: &Self::Tensor) {
         let dst_size = dst.shape().size();
 
@@ -521,7 +568,7 @@ impl BackendMul<f32> for Native {
 }
 
 
-impl BackendCopy<f32> for Native {
+impl BackendCopy<f32> for Native<f32> {
     fn copy(&self, dst: &mut Self::Tensor, a: &Self::Tensor) {
         let size = dst.shape().size();
 
@@ -536,7 +583,7 @@ impl BackendCopy<f32> for Native {
     }
 }
 
-impl BackendMaximum<f32> for Native {
+impl BackendMaximum<f32> for Native<f32> {
     fn maximum(&self, dst: &mut Self::Tensor, a: &Self::Tensor) {
         let dst_size = dst.shape().size();
 
@@ -552,7 +599,7 @@ impl BackendMaximum<f32> for Native {
 }
 
 
-impl BackendAdam<f32> for Native {
+impl BackendAdam<f32> for Native<f32> {
     fn adam_p(&self, dst: &mut Self::Tensor, lr: f32, moms: &Self::Tensor, vels: &Self::Tensor, eps: f32) {
         let dst_size = dst.shape().size();
 
@@ -569,7 +616,7 @@ impl BackendAdam<f32> for Native {
     }
 }
 
-impl BackendSoftmax<f32> for Native {
+impl BackendSoftmax<f32> for Native<f32> {
     fn softmax(&self, y: &mut Self::Tensor, x: &Self::Tensor) {
         let y_shape = y.shape();
         let x_shape = x.shape();
@@ -619,7 +666,7 @@ impl BackendSoftmax<f32> for Native {
     }
 }
 
-impl BackendConv2d<f32> for Native {
+impl BackendConv2d<f32> for Native<f32> {
     type Context = ();
 
     fn conv2d_forward(&self, y: &mut Self::Tensor, x: &Self::Tensor, w: &Self::Tensor, conv_info: &Conv2dInfo) {
@@ -742,7 +789,7 @@ impl BackendConv2d<f32> for Native {
     }
 }
 
-impl BackendMaxPool2d<f32> for Native {
+impl BackendMaxPool2d<f32> for Native<f32> {
     fn max_pool2d(&self, y: &mut Self::Tensor, x: &Self::Tensor, conv_info: &Conv2dInfo) {
         let x_shape = &x.shape().as_slice()[0..4];
         let y_shape = &y.shape().as_slice()[0..4];
@@ -845,7 +892,7 @@ impl BackendMaxPool2d<f32> for Native {
     }
 }
 
-impl BackendAvgPool2d<f32> for Native {
+impl BackendAvgPool2d<f32> for Native<f32> {
     fn avg_pool2d(&self, y: &mut Self::Tensor, x: &Self::Tensor, conv_info: &Conv2dInfo) {
         let x_shape = &x.shape().as_slice()[0..4];
         let y_shape = &y.shape().as_slice()[0..4];
@@ -899,7 +946,7 @@ impl BackendAvgPool2d<f32> for Native {
     }
 }
 
-impl BackendPaddingCopy2d<f32> for Native {
+impl BackendPaddingCopy2d<f32> for Native<f32> {
     fn copy_with_padding2d(&self, y: &mut Self::Tensor, x: &Self::Tensor, y_paddings: (u32, u32), x_paddings: (u32, u32)) {
         let y_shape = &y.shape().as_slice()[0..4];
         let x_shape = &x.shape().as_slice()[0..4];
@@ -964,16 +1011,16 @@ impl BackendPaddingCopy2d<f32> for Native {
 #[cfg(test)]
 mod tests {
     use crate::backend::*;
-    use super::{Native, NativeTensorF32};
+    use super::{Native, NativeTensor};
     use crate::tensor::Tensor;
 
     #[test]
     fn test_copy_with_padding2d() {
-        let bac = Native;
-        let mut a1 = NativeTensorF32::new((1, 1, 3, 3));
-        let mut b1 = NativeTensorF32::new((1, 1, 5, 5));
-        let mut a2 = NativeTensorF32::new((1, 1, 5, 5));
-        let mut b2 = NativeTensorF32::new((1, 1, 3, 3));
+        let bac: Native<f32> = Default::default();
+        let mut a1 = NativeTensor::new((1, 1, 3, 3));
+        let mut b1 = NativeTensor::new((1, 1, 5, 5));
+        let mut a2 = NativeTensor::new((1, 1, 5, 5));
+        let mut b2 = NativeTensor::new((1, 1, 3, 3));
 
         bac.load_tensor_u8(&mut a1, &[
             1, 2, 3,
@@ -1014,9 +1061,9 @@ mod tests {
 
     #[test]
     fn test_softmax() {
-        let bac = Native;
-        let mut a = NativeTensorF32::new((3, 3));
-        let mut b = NativeTensorF32::new((3, 3));
+        let bac: Native<f32> = Default::default();
+        let mut a = NativeTensor::new((3, 3));
+        let mut b = NativeTensor::new((3, 3));
 
         bac.load_tensor_u8(&mut a, &[
             1,2,3,
@@ -1037,10 +1084,10 @@ mod tests {
 
     #[test]
     fn test_matmul() {
-        let bac = Native;
-        let mut a = NativeTensorF32::new((2, 3));
-        let mut b = NativeTensorF32::new((3, 4));
-        let mut c = NativeTensorF32::new((2, 4));
+        let bac: Native<f32> = Default::default();
+        let mut a = NativeTensor::new((2, 3));
+        let mut b = NativeTensor::new((3, 4));
+        let mut c = NativeTensor::new((2, 4));
 
         bac.load_tensor_u8(&mut a, &[
             1,2,3,
@@ -1065,10 +1112,10 @@ mod tests {
 
     #[test]
     fn test_matmul_nt() {
-        let bac = Native;
-        let mut a = NativeTensorF32::new((2, 3));
-        let mut b = NativeTensorF32::new((4, 3));
-        let mut c = NativeTensorF32::new((2, 4));
+        let bac: Native<f32> = Default::default();
+        let mut a = NativeTensor::new((2, 3));
+        let mut b = NativeTensor::new((4, 3));
+        let mut c = NativeTensor::new((2, 4));
 
         bac.load_tensor_u8(&mut a, &[
             1,2,3,
@@ -1095,10 +1142,10 @@ mod tests {
 
     #[test]
     fn test_matmul_tn() {
-        let bac = Native;
-        let mut a = NativeTensorF32::new((8, 5));
-        let mut b = NativeTensorF32::new((8, 3));
-        let mut c = NativeTensorF32::new((5, 3));
+        let bac: Native<f32> = Default::default();
+        let mut a = NativeTensor::new((8, 5));
+        let mut b = NativeTensor::new((8, 3));
+        let mut c = NativeTensor::new((5, 3));
 
         bac.load_tensor_u8(&mut a, &[
             0,  1,  2,  3,  4,  
@@ -1138,10 +1185,10 @@ mod tests {
 
     #[test]
     fn test_axpy() {
-        let bac = Native;
+        let bac: Native<f32> = Default::default();
 
-        let mut a = NativeTensorF32::new((2, 2));
-        let mut b = NativeTensorF32::new((2, 2));
+        let mut a = NativeTensor::new((2, 2));
+        let mut b = NativeTensor::new((2, 2));
 
         bac.load_tensor_u8(&mut a, &[1, 2, 3, 4]);
         bac.load_tensor_u8(&mut b, &[1, 2, 3, 4]);
@@ -1155,10 +1202,10 @@ mod tests {
 
     #[test]
     fn test_add() {
-        let bac = Native;
+        let bac: Native<f32> = Default::default();
 
-        let mut a = NativeTensorF32::new((2, 2));
-        let mut b = NativeTensorF32::new((2, 2));
+        let mut a = NativeTensor::new((2, 2));
+        let mut b = NativeTensor::new((2, 2));
 
         bac.load_tensor_u8(&mut a, &[1, 2, 3, 4]);
         bac.load_tensor_u8(&mut b, &[1, 2, 3, 4]);

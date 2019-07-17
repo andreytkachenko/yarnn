@@ -2,7 +2,7 @@
 
 members = [
     "yarnn",
-    # "yarnn-native-blas",
+    "yarnn-native-blas",
     
     "yarnn-models/mnist",
     "yarnn-models/vgg16",

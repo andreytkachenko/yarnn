@@ -1,8 +1,9 @@
 use yarnn::prelude::*;
-use yarnn::native::{Native, NativeTensorF32};
+use yarnn::native::{Native, NativeTensor};
 use yarnn_model_mnist::*;
 use yarnn::losses::CrossEntropyLoss;
 use yarnn::optimizers::Adam;
+use yarnn_native_blas::NativeBlas;
 use mnist::{Mnist, MnistBuilder};
 
 fn calc_accuracy<N, B: Backend<N>>(back: &B, pred: &B::Tensor, targets: &[u8]) -> f32 {
@@ -38,7 +39,7 @@ fn calc_accuracy<N, B: Backend<N>>(back: &B, pred: &B::Tensor, targets: &[u8]) -
 fn main() {
     const BATCH_SIZE: usize = 64;
 
-    let backend = Native;
+    let backend: NativeBlas<f32, Native<_>> = Default::default();
     let optimizer = Adam::default();
     
     // let mut model = MnistDenseModel::new(28, 28, 1);
@@ -57,14 +58,14 @@ fn main() {
         .label_format_digit()
         .finalize();
 
-    let mut inputs = NativeTensorF32::new((BATCH_SIZE as u32, 1, 28, 28));
-    let mut targets = NativeTensorF32::new((BATCH_SIZE as u32, 10));
-    let mut deltas = NativeTensorF32::new((BATCH_SIZE as u32, 10));
+    let mut inputs = NativeTensor::new((BATCH_SIZE as u32, 1, 28, 28));
+    let mut targets = NativeTensor::new((BATCH_SIZE as u32, 10));
+    let mut deltas = NativeTensor::new((BATCH_SIZE as u32, 10));
 
     let test_count = 1000;
 
-    let mut inputs0 = NativeTensorF32::new((test_count as u32, 1, 28, 28));
-    let mut targets0 = NativeTensorF32::new((test_count as u32, 10));
+    let mut inputs0 = NativeTensor::new((test_count as u32, 1, 28, 28));
+    let mut targets0 = NativeTensor::new((test_count as u32, 10));
 
     let mut tmp = vec![0u8; 10 * test_count];
 

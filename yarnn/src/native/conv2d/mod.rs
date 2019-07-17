@@ -1,10 +1,8 @@
 mod kernel_3x3;
 mod kernel_5x5;
-mod img2col;
 
 pub use self::kernel_3x3::*;
 pub use self::kernel_5x5::*;
-pub use self::img2col::*;
 
 #[allow(dead_code)]
 pub fn valid_conv2d(y: &mut [f32], x: &[f32], w: &[f32], alpha: f32,
