@@ -1,7 +1,7 @@
-use crate::tensor::{Tensor, TensorShape};
-use crate::layer::{Layer, LayerExt, DefaultLayerContext};
-use crate::backend::{Backend, PaddingKind, BackendAvgPool2d, Conv2dInfo};
+use crate::backend::{Backend, BackendAvgPool2d, Conv2dInfo, PaddingKind};
+use crate::layer::{DefaultLayerContext, Layer, LayerExt};
 use crate::optimizer::Optimizer;
+use crate::tensor::{Tensor, TensorShape};
 
 use core::marker::PhantomData;
 
@@ -19,24 +19,26 @@ impl Default for AvgPool2dConfig {
     }
 }
 
-pub struct AvgPool2d<N, B> 
-    where B: Backend<N>
+pub struct AvgPool2d<N, B>
+where
+    B: Backend<N>,
 {
     input_shape: TensorShape,
     conv_info: Conv2dInfo,
-    _m: PhantomData<fn(N, B)>
+    _m: PhantomData<fn(N, B)>,
 }
 
-impl <N, B, O> Layer<N, B, O> for AvgPool2d<N, B> 
-    where B: Backend<N> + BackendAvgPool2d<N>,
-          O: Optimizer<N, B>
+impl<N, B, O> Layer<N, B, O> for AvgPool2d<N, B>
+where
+    B: Backend<N> + BackendAvgPool2d<N>,
+    O: Optimizer<N, B>,
 {
     type Context = DefaultLayerContext<N, B>;
 
     fn name(&self) -> &str {
         "AvgPool2d"
     }
-    
+
     #[inline]
     fn input_shape(&self) -> TensorShape {
         self.input_shape.clone()
@@ -51,13 +53,9 @@ impl <N, B, O> Layer<N, B, O> for AvgPool2d<N, B>
         let rows = (is[0] - self.conv_info.kernel.0) / self.conv_info.strides.0 + 1;
         let cols = (is[1] - self.conv_info.kernel.1) / self.conv_info.strides.1 + 1;
 
-        TensorShape::new3d(
-            is[0],
-            rows,
-            cols,
-        )
+        TensorShape::new3d(is[0], rows, cols)
     }
-    
+
     #[inline]
     fn forward(&self, backend: &B, x: &B::Tensor, ctx: &mut Self::Context) {
         ctx.update_outputs_shape(x.shape().get(0), &Layer::<N, B, O>::output_shape(self));
@@ -83,9 +81,10 @@ impl <N, B, O> Layer<N, B, O> for AvgPool2d<N, B>
     }
 }
 
-impl <N, B, O> LayerExt<N, B, O> for AvgPool2d<N, B> 
-    where B: Backend<N> + BackendAvgPool2d<N>,
-          O: Optimizer<N, B>
+impl<N, B, O> LayerExt<N, B, O> for AvgPool2d<N, B>
+where
+    B: Backend<N> + BackendAvgPool2d<N>,
+    O: Optimizer<N, B>,
 {
     type Config = AvgPool2dConfig;
 

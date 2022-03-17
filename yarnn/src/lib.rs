@@ -1,5 +1,5 @@
 #![feature(specialization, trait_alias)]
-#![recursion_limit="128"]
+#![recursion_limit = "128"]
 
 pub mod layer;
 pub mod layers;
@@ -13,15 +13,15 @@ pub mod native;
 pub mod loss;
 pub mod losses;
 
-pub mod tensor;
 pub mod params;
+pub mod tensor;
 
 #[macro_use]
 mod macros;
 
 pub mod prelude {
     pub use super::backend::*;
+    pub use super::layer::*;
     pub use super::loss::*;
     pub use super::tensor::*;
-    pub use super::layer::*;
 }

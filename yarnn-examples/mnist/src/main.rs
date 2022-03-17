@@ -1,10 +1,10 @@
-use yarnn::prelude::*;
-use yarnn::native::{Native, NativeTensor};
-use yarnn_model_mnist::*;
-use yarnn::losses::CrossEntropyLoss;
-use yarnn::optimizers::Adam;
-use yarnn_native_blas::NativeBlas;
 use mnist::{Mnist, MnistBuilder};
+use yarnn::losses::CrossEntropyLoss;
+use yarnn::native::{Native, NativeTensor};
+use yarnn::optimizers::Adam;
+use yarnn::prelude::*;
+use yarnn_model_mnist::*;
+use yarnn_native_blas::NativeBlas;
 
 fn calc_accuracy<N, B: Backend<N>>(back: &B, pred: &B::Tensor, targets: &[u8]) -> f32 {
     let mut vec = vec![0.0; pred.shape().size()];
@@ -14,7 +14,7 @@ fn calc_accuracy<N, B: Backend<N>>(back: &B, pred: &B::Tensor, targets: &[u8]) -
     let mut total = 0;
 
     for (x, &y) in vec.chunks(10).zip(targets.iter()) {
-        let x = &x[0 .. 10];
+        let x = &x[0..10];
 
         let mut max = 0;
         let mut max_value = 0.0;
@@ -33,7 +33,7 @@ fn calc_accuracy<N, B: Backend<N>>(back: &B, pred: &B::Tensor, targets: &[u8]) -
         total += 1;
     }
 
-    (positives as f32) / (total as f32) 
+    (positives as f32) / (total as f32)
 }
 
 fn main() {
@@ -41,7 +41,7 @@ fn main() {
 
     let backend: NativeBlas<f32, Native<_>> = Default::default();
     let optimizer = Adam::default();
-    
+
     // let mut model = MnistDenseModel::new(28, 28, 1);
     let mut model = MnistConvModel::new(28, 28, 1);
     model.init(&backend);
@@ -53,7 +53,13 @@ fn main() {
 
     let loss = CrossEntropyLoss::new();
 
-    let Mnist { trn_img, trn_lbl, tst_img, tst_lbl, .. } = MnistBuilder::new()
+    let Mnist {
+        trn_img,
+        trn_lbl,
+        tst_img,
+        tst_lbl,
+        ..
+    } = MnistBuilder::new()
         .base_path("./datasets/mnist")
         .label_format_digit()
         .finalize();
@@ -81,14 +87,14 @@ fn main() {
 
     backend.load_tensor_u8(&mut targets0, &tmp[..]);
 
-    for epoch in 1 ..= 4 {
+    for epoch in 1..=4 {
         println!("epoch {}", epoch);
 
-        for step in 0 .. (60000 / BATCH_SIZE) {
+        for step in 0..(60000 / BATCH_SIZE) {
             let offset = step * BATCH_SIZE;
             let mut tmp = [0u8; 10 * BATCH_SIZE];
 
-            let inputs_slice = &trn_img[offset * 784 .. (offset + BATCH_SIZE) * 784 ];
+            let inputs_slice = &trn_img[offset * 784..(offset + BATCH_SIZE) * 784];
             let targets_slice = &trn_lbl[offset..offset + BATCH_SIZE];
 
             backend.load_tensor_u8(&mut inputs, inputs_slice);
@@ -102,13 +108,16 @@ fn main() {
 
             model.forward(&backend, &inputs, &mut train_ctx);
             loss.derivative(&backend, &mut deltas, train_ctx.outputs(), &targets);
-            model.backward(&backend, &deltas, &inputs, &mut train_ctx);            
+            model.backward(&backend, &deltas, &inputs, &mut train_ctx);
             model.calc_gradients(&backend, &deltas, &inputs, &mut train_ctx);
             model.optimize(&backend, &optimizer);
         }
 
         model.forward(&backend, &inputs0, &mut test_ctx);
 
-        println!("Accuracy {}", calc_accuracy(&backend, test_ctx.outputs(), targets0_slice));
+        println!(
+            "Accuracy {}",
+            calc_accuracy(&backend, test_ctx.outputs(), targets0_slice)
+        );
     }
 }

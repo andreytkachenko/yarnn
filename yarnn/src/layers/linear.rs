@@ -1,8 +1,8 @@
-use crate::tensor::{Tensor, TensorShape};
-use crate::layer::{Layer, LayerExt, DefaultLayerContext};
-use crate::params::Params;
-use crate::backend::{Backend, BackendGemm, BackendBias, BackendScale};
+use crate::backend::{Backend, BackendBias, BackendGemm, BackendScale};
+use crate::layer::{DefaultLayerContext, Layer, LayerExt};
 use crate::optimizer::Optimizer;
+use crate::params::Params;
+use crate::tensor::{Tensor, TensorShape};
 
 pub struct LinearConfig {
     pub units: u32,
@@ -18,9 +18,10 @@ impl Default for LinearConfig {
     }
 }
 
-pub struct Linear<N, B, O> 
-    where B: Backend<N>,
-          O: Optimizer<N, B>
+pub struct Linear<N, B, O>
+where
+    B: Backend<N>,
+    O: Optimizer<N, B>,
 {
     inputs: u32,
     outputs: u32,
@@ -29,9 +30,10 @@ pub struct Linear<N, B, O>
     biases: Params<N, B, O>,
 }
 
-impl <N, B, O> Layer<N, B, O> for Linear<N, B, O> 
-    where B: Backend<N> + BackendGemm<N> + BackendBias<N> + BackendScale<N>,
-          O: Optimizer<N, B>
+impl<N, B, O> Layer<N, B, O> for Linear<N, B, O>
+where
+    B: Backend<N> + BackendGemm<N> + BackendBias<N> + BackendScale<N>,
+    O: Optimizer<N, B>,
 {
     type Context = DefaultLayerContext<N, B>;
 
@@ -46,10 +48,11 @@ impl <N, B, O> Layer<N, B, O> for Linear<N, B, O>
         } else {
             self.weights.params.shape().size()
         }
-    } 
-    
+    }
+
     fn init(&mut self, backend: &B) {
-        self.weights.init_random(backend, self.inputs + self.outputs);
+        self.weights
+            .init_random(backend, self.inputs + self.outputs);
         if self.use_biases {
             self.biases.init_zero(backend);
         }
@@ -64,7 +67,7 @@ impl <N, B, O> Layer<N, B, O> for Linear<N, B, O>
     fn output_shape(&self) -> TensorShape {
         TensorShape::new1d(self.outputs)
     }
-    
+
     #[inline]
     fn forward(&self, backend: &B, x: &B::Tensor, ctx: &mut Self::Context) {
         ctx.update_outputs_shape(x.shape().get(0), &self.output_shape());
@@ -79,11 +82,17 @@ impl <N, B, O> Layer<N, B, O> for Linear<N, B, O>
     #[inline]
     fn backward(&mut self, backend: &B, dy: &B::Tensor, x: &B::Tensor, ctx: &mut Self::Context) {
         ctx.update_deltas_shape(x.shape().get(0), &self.input_shape());
-        
+
         backend.matmul_nt(&mut ctx.deltas, dy, &self.weights.params);
     }
 
-    fn calc_gradients(&mut self, backend: &B, dy: &B::Tensor, x: &B::Tensor, _ctx: &mut Self::Context) {
+    fn calc_gradients(
+        &mut self,
+        backend: &B,
+        dy: &B::Tensor,
+        x: &B::Tensor,
+        _ctx: &mut Self::Context,
+    ) {
         let prescaler = 1.0 / x.shape().get(0) as f32;
 
         backend.matmul_tn(&mut self.weights.grads, x, dy);
@@ -97,17 +106,28 @@ impl <N, B, O> Layer<N, B, O> for Linear<N, B, O>
 
     #[inline]
     fn optimize(&mut self, backend: &B, optimizer: &O) {
-        optimizer.update_params(backend, &mut self.weights.ctx, &mut self.weights.params, &mut self.weights.grads);
+        optimizer.update_params(
+            backend,
+            &mut self.weights.ctx,
+            &mut self.weights.params,
+            &mut self.weights.grads,
+        );
 
         if self.use_biases {
-            optimizer.update_params(backend, &mut self.biases.ctx, &mut self.biases.params, &mut self.biases.grads);
+            optimizer.update_params(
+                backend,
+                &mut self.biases.ctx,
+                &mut self.biases.params,
+                &mut self.biases.grads,
+            );
         }
     }
 }
 
-impl <N, B, O> LayerExt<N, B, O> for Linear<N, B, O> 
-    where B: Backend<N> + BackendGemm<N> + BackendBias<N> + BackendScale<N>,
-          O: Optimizer<N, B>
+impl<N, B, O> LayerExt<N, B, O> for Linear<N, B, O>
+where
+    B: Backend<N> + BackendGemm<N> + BackendBias<N> + BackendScale<N>,
+    O: Optimizer<N, B>,
 {
     type Config = LinearConfig;
 
@@ -121,7 +141,7 @@ impl <N, B, O> LayerExt<N, B, O> for Linear<N, B, O>
             outputs: cfg.units,
             use_biases: cfg.biases,
             weights: Params::new((inputs, cfg.units)),
-            biases: Params::new((cfg.units, )),
+            biases: Params::new((cfg.units,)),
         }
     }
 }

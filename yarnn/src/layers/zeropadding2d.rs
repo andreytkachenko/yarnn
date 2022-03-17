@@ -1,7 +1,7 @@
-use crate::tensor::{Tensor, TensorShape};
 use crate::backend::{Backend, BackendCopy};
-use crate::layer::{Layer, LayerExt, DefaultLayerContext};
+use crate::layer::{DefaultLayerContext, Layer, LayerExt};
 use crate::optimizer::Optimizer;
+use crate::tensor::{Tensor, TensorShape};
 use core::marker::PhantomData;
 
 #[derive(Default)]
@@ -9,24 +9,26 @@ pub struct ZeroPadding2dConfig {
     pub paddings: (u32, u32),
 }
 
-pub struct ZeroPadding2d<N, B> 
-    where B: Backend<N>,
+pub struct ZeroPadding2d<N, B>
+where
+    B: Backend<N>,
 {
     input_shape: TensorShape,
     config: ZeroPadding2dConfig,
     _x: PhantomData<fn(N, B)>,
 }
 
-impl <N, B, O> Layer<N, B, O> for ZeroPadding2d<N, B> 
-    where B: Backend<N> + BackendCopy<N>,
-          O: Optimizer<N, B>
+impl<N, B, O> Layer<N, B, O> for ZeroPadding2d<N, B>
+where
+    B: Backend<N> + BackendCopy<N>,
+    O: Optimizer<N, B>,
 {
     type Context = DefaultLayerContext<N, B>;
 
     fn name(&self) -> &str {
         "ZeroPadding2d"
     }
-    
+
     #[inline]
     fn input_shape(&self) -> TensorShape {
         self.input_shape.clone()
@@ -39,10 +41,10 @@ impl <N, B, O> Layer<N, B, O> for ZeroPadding2d<N, B>
         TensorShape::new3d(
             is[0],
             is[1] + self.config.paddings.0 * 2,
-            is[2] + self.config.paddings.1 * 2
+            is[2] + self.config.paddings.1 * 2,
         )
     }
-    
+
     #[inline]
     fn forward(&self, _backend: &B, x: &B::Tensor, ctx: &mut Self::Context) {
         ctx.update_outputs_shape(x.shape().get(0), &Layer::<N, B, O>::output_shape(self));
@@ -56,9 +58,10 @@ impl <N, B, O> Layer<N, B, O> for ZeroPadding2d<N, B>
     }
 }
 
-impl <N, B, O> LayerExt<N, B, O> for ZeroPadding2d<N, B> 
-    where B: Backend<N> + BackendCopy<N>,
-          O: Optimizer<N, B>
+impl<N, B, O> LayerExt<N, B, O> for ZeroPadding2d<N, B>
+where
+    B: Backend<N> + BackendCopy<N>,
+    O: Optimizer<N, B>,
 {
     type Config = ZeroPadding2dConfig;
 
@@ -66,8 +69,7 @@ impl <N, B, O> LayerExt<N, B, O> for ZeroPadding2d<N, B>
         ZeroPadding2d {
             input_shape,
             config,
-            _x: Default::default()
+            _x: Default::default(),
         }
     }
-
 }

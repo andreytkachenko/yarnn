@@ -1,6 +1,6 @@
 use crate::backend::Backend;
 use crate::optimizer::{Optimizer, OptimizerContext};
-use crate::tensor::{TensorShape, Tensor};
+use crate::tensor::{Tensor, TensorShape};
 
 pub struct Params<N, B: Backend<N>, O: Optimizer<N, B>> {
     pub params: B::Tensor,

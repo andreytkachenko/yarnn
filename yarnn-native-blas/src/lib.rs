@@ -1,23 +1,25 @@
 mod img2col;
 
+use std::marker::PhantomData;
 use yarnn::backend::*;
 use yarnn::native::*;
 use yarnn::tensor::*;
-use std::marker::PhantomData;
 
 extern crate openblas_src;
 
-pub struct NativeBlas<N, B> 
-    where N: NativeNumber,
-          B: NativeBackend<N>
+pub struct NativeBlas<N, B>
+where
+    N: NativeNumber,
+    B: NativeBackend<N>,
 {
     inner: B,
-    _m: PhantomData<fn(N)>
+    _m: PhantomData<fn(N)>,
 }
 
 impl<N, B> Default for NativeBlas<N, B>
-    where N: NativeNumber,
-          B: NativeBackend<N>
+where
+    N: NativeNumber,
+    B: NativeBackend<N>,
 {
     fn default() -> Self {
         Self {
@@ -27,9 +29,10 @@ impl<N, B> Default for NativeBlas<N, B>
     }
 }
 
-impl<N, B> NativeBackend<N> for NativeBlas<N, B> 
-    where N: NativeNumber,
-          B: NativeBackend<N>
+impl<N, B> NativeBackend<N> for NativeBlas<N, B>
+where
+    N: NativeNumber,
+    B: NativeBackend<N>,
 {
     #[inline]
     fn read_tensor<'a>(&self, t: &'a Self::Tensor) -> &'a [N] {
@@ -42,21 +45,23 @@ impl<N, B> NativeBackend<N> for NativeBlas<N, B>
     }
 }
 
-impl<N, B> NativeBlas<N, B> 
-    where N: NativeNumber,
-          B: NativeBackend<N>
+impl<N, B> NativeBlas<N, B>
+where
+    N: NativeNumber,
+    B: NativeBackend<N>,
 {
     pub fn new(inner: B) -> Self {
         Self {
             inner,
-            _m: Default::default()
+            _m: Default::default(),
         }
     }
 }
 
-impl<N, B> Backend<N> for NativeBlas<N, B> 
-    where N: NativeNumber,
-          B: NativeBackend<N>
+impl<N, B> Backend<N> for NativeBlas<N, B>
+where
+    N: NativeNumber,
+    B: NativeBackend<N>,
 {
     type Tensor = B::Tensor;
 
@@ -96,8 +101,9 @@ impl<N, B> Backend<N> for NativeBlas<N, B>
     }
 }
 
-impl<B> BackendGemm<f32> for NativeBlas<f32, B> 
-    where B: NativeBackend<f32>
+impl<B> BackendGemm<f32> for NativeBlas<f32, B>
+where
+    B: NativeBackend<f32>,
 {
     #[inline]
     fn matmul(&self, dst: &mut Self::Tensor, a: &Self::Tensor, b: &Self::Tensor) {
@@ -114,15 +120,23 @@ impl<B> BackendGemm<f32> for NativeBlas<f32, B>
         let m = a_shape.get(0) as i32;
         let n = b_shape.get(1) as i32;
         let k = b_shape.get(0) as i32;
-        
+
         unsafe {
-            blas::sgemm('N' as u8, 'N' as u8,
-                n, m, k, 
-                1.0, 
-                self.read_tensor(b), n, 
-                self.read_tensor(a), k, 
-                0.0, 
-                self.write_tensor(dst), n);
+            blas::sgemm(
+                'N' as u8,
+                'N' as u8,
+                n,
+                m,
+                k,
+                1.0,
+                self.read_tensor(b),
+                n,
+                self.read_tensor(a),
+                k,
+                0.0,
+                self.write_tensor(dst),
+                n,
+            );
         }
     }
 
@@ -141,15 +155,23 @@ impl<B> BackendGemm<f32> for NativeBlas<f32, B>
         let m = a_shape.get(0) as i32;
         let n = b_shape.get(0) as i32;
         let k = b_shape.get(1) as i32;
-        
+
         unsafe {
-            blas::sgemm('T' as u8, 'N' as u8,
-                n, m, k, 
-                1.0, 
-                self.read_tensor(b), k, 
-                self.read_tensor(a), k, 
-                0.0, 
-                self.write_tensor(dst), n);
+            blas::sgemm(
+                'T' as u8,
+                'N' as u8,
+                n,
+                m,
+                k,
+                1.0,
+                self.read_tensor(b),
+                k,
+                self.read_tensor(a),
+                k,
+                0.0,
+                self.write_tensor(dst),
+                n,
+            );
         }
     }
 
@@ -168,15 +190,23 @@ impl<B> BackendGemm<f32> for NativeBlas<f32, B>
         let m = a_shape.get(1) as i32;
         let n = b_shape.get(1) as i32;
         let k = b_shape.get(0) as i32;
-        
+
         unsafe {
-            blas::sgemm('N' as u8, 'T' as u8,
-                n, m, k, 
-                1.0, 
-                self.read_tensor(b), n, 
-                self.read_tensor(a), m, 
-                0.0, 
-                self.write_tensor(dst), n);
+            blas::sgemm(
+                'N' as u8,
+                'T' as u8,
+                n,
+                m,
+                k,
+                1.0,
+                self.read_tensor(b),
+                n,
+                self.read_tensor(a),
+                m,
+                0.0,
+                self.write_tensor(dst),
+                n,
+            );
         }
     }
 
@@ -186,8 +216,9 @@ impl<B> BackendGemm<f32> for NativeBlas<f32, B>
     }
 }
 
-impl<B> BackendAxpy<f32> for NativeBlas<f32, B> 
-    where B: NativeBackend<f32>
+impl<B> BackendAxpy<f32> for NativeBlas<f32, B>
+where
+    B: NativeBackend<f32>,
 {
     #[inline]
     fn axpy(&self, dst: &mut Self::Tensor, scale: f32, x: &Self::Tensor) {
@@ -202,30 +233,25 @@ impl<B> BackendAxpy<f32> for NativeBlas<f32, B>
                 self.read_tensor(x),
                 1,
                 self.write_tensor(dst),
-                1
+                1,
             );
         }
     }
 }
 
-impl<B> BackendScale<f32> for NativeBlas<f32, B> 
-    where B: NativeBackend<f32>
+impl<B> BackendScale<f32> for NativeBlas<f32, B>
+where
+    B: NativeBackend<f32>,
 {
     #[inline]
     fn scale(&self, dst: &mut Self::Tensor, scale: f32) {
         let dst_size = dst.shape().size();
 
         unsafe {
-            blas::sscal(
-                dst_size as i32,
-                scale,
-                self.write_tensor(dst),
-                1
-            );
+            blas::sscal(dst_size as i32, scale, self.write_tensor(dst), 1);
         }
     }
 }
-
 
 impl<B: NativeBackend<f32> + BackendSigmoid<f32>> BackendSigmoid<f32> for NativeBlas<f32, B> {
     #[inline]
@@ -265,7 +291,13 @@ impl<B: NativeBackend<f32> + BackendBias<f32>> BackendBias<f32> for NativeBlas<f
 
 impl<B: NativeBackend<f32> + BackendMse<f32>> BackendMse<f32> for NativeBlas<f32, B> {
     #[inline]
-    fn scaled_square_diff(&self, dst: &mut Self::Tensor, a: &Self::Tensor, b: &Self::Tensor, scale: f32) {
+    fn scaled_square_diff(
+        &self,
+        dst: &mut Self::Tensor,
+        a: &Self::Tensor,
+        b: &Self::Tensor,
+        scale: f32,
+    ) {
         self.inner.scaled_square_diff(dst, a, b, scale)
     }
 
@@ -303,7 +335,6 @@ impl<B: NativeBackend<f32> + BackendMul<f32>> BackendMul<f32> for NativeBlas<f32
     }
 }
 
-
 impl<B: NativeBackend<f32> + BackendCopy<f32>> BackendCopy<f32> for NativeBlas<f32, B> {
     #[inline]
     fn copy(&self, dst: &mut Self::Tensor, a: &Self::Tensor) {
@@ -318,10 +349,16 @@ impl<B: NativeBackend<f32> + BackendMaximum<f32>> BackendMaximum<f32> for Native
     }
 }
 
-
 impl<B: NativeBackend<f32> + BackendAdam<f32>> BackendAdam<f32> for NativeBlas<f32, B> {
     #[inline]
-    fn adam_p(&self, dst: &mut Self::Tensor, lr: f32, moms: &Self::Tensor, vels: &Self::Tensor, eps: f32) {
+    fn adam_p(
+        &self,
+        dst: &mut Self::Tensor,
+        lr: f32,
+        moms: &Self::Tensor,
+        vels: &Self::Tensor,
+        eps: f32,
+    ) {
         self.inner.adam_p(dst, lr, moms, vels, eps)
     }
 }
@@ -337,17 +374,35 @@ impl<B: NativeBackend<f32> + BackendConv2d<f32>> BackendConv2d<f32> for NativeBl
     type Context = ();
 
     #[inline]
-    fn conv2d_forward(&self, y: &mut Self::Tensor, x: &Self::Tensor, w: &Self::Tensor, conv_info: &Conv2dInfo) {
+    fn conv2d_forward(
+        &self,
+        y: &mut Self::Tensor,
+        x: &Self::Tensor,
+        w: &Self::Tensor,
+        conv_info: &Conv2dInfo,
+    ) {
         self.inner.conv2d_forward(y, x, w, conv_info)
     }
 
     #[inline]
-    fn conv2d_backward_input(&self, dx: &mut Self::Tensor, dy: &Self::Tensor, w: &Self::Tensor, conv_info: &Conv2dInfo) {
-       self.inner.conv2d_backward_input(dx, dy, w, conv_info)
+    fn conv2d_backward_input(
+        &self,
+        dx: &mut Self::Tensor,
+        dy: &Self::Tensor,
+        w: &Self::Tensor,
+        conv_info: &Conv2dInfo,
+    ) {
+        self.inner.conv2d_backward_input(dx, dy, w, conv_info)
     }
 
     #[inline]
-    fn conv2d_backward_filter(&self, dw: &mut Self::Tensor, x: &Self::Tensor, dy: &Self::Tensor, conv_info: &Conv2dInfo) {
+    fn conv2d_backward_filter(
+        &self,
+        dw: &mut Self::Tensor,
+        x: &Self::Tensor,
+        dy: &Self::Tensor,
+        conv_info: &Conv2dInfo,
+    ) {
         self.inner.conv2d_backward_filter(dw, x, dy, conv_info)
     }
 }
@@ -359,7 +414,13 @@ impl<B: NativeBackend<f32> + BackendMaxPool2d<f32>> BackendMaxPool2d<f32> for Na
     }
 
     #[inline]
-    fn max_pool2d_backprop(&self, dx: &mut Self::Tensor, dy: &Self::Tensor, x: &Self::Tensor, conv_info: &Conv2dInfo) {
+    fn max_pool2d_backprop(
+        &self,
+        dx: &mut Self::Tensor,
+        dy: &Self::Tensor,
+        x: &Self::Tensor,
+        conv_info: &Conv2dInfo,
+    ) {
         self.inner.max_pool2d_backprop(dx, dy, x, conv_info)
     }
 }
@@ -371,14 +432,28 @@ impl<B: NativeBackend<f32> + BackendAvgPool2d<f32>> BackendAvgPool2d<f32> for Na
     }
 
     #[inline]
-    fn avg_pool2d_backprop(&self, dx: &mut Self::Tensor, dy: &Self::Tensor, x: &Self::Tensor, conv_info: &Conv2dInfo) {
+    fn avg_pool2d_backprop(
+        &self,
+        dx: &mut Self::Tensor,
+        dy: &Self::Tensor,
+        x: &Self::Tensor,
+        conv_info: &Conv2dInfo,
+    ) {
         self.inner.avg_pool2d_backprop(dx, dy, x, conv_info)
     }
 }
 
-impl<B: NativeBackend<f32> + BackendPaddingCopy2d<f32>> BackendPaddingCopy2d<f32> for NativeBlas<f32, B> {
+impl<B: NativeBackend<f32> + BackendPaddingCopy2d<f32>> BackendPaddingCopy2d<f32>
+    for NativeBlas<f32, B>
+{
     #[inline]
-    fn copy_with_padding2d(&self, y: &mut Self::Tensor, x: &Self::Tensor, y_paddings: (u32, u32), x_paddings: (u32, u32)) {
+    fn copy_with_padding2d(
+        &self,
+        y: &mut Self::Tensor,
+        x: &Self::Tensor,
+        y_paddings: (u32, u32),
+        x_paddings: (u32, u32),
+    ) {
         self.inner.copy_with_padding2d(y, x, y_paddings, x_paddings)
     }
 }

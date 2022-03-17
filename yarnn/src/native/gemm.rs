@@ -1,9 +1,15 @@
-
-fn gemm_nn(m: usize, n: usize, k: usize, alpha: f32, 
-           a: &[f32], lda: usize, 
-           b: &[f32], ldb: usize,
-           c: &mut [f32], ldc: usize)
-{
+fn gemm_nn(
+    m: usize,
+    n: usize,
+    k: usize,
+    alpha: f32,
+    a: &[f32],
+    lda: usize,
+    b: &[f32],
+    ldb: usize,
+    c: &mut [f32],
+    ldc: usize,
+) {
     let a = &a[0..m * k];
     let b = &b[0..n * k];
     let c = &mut c[0..m * n];
@@ -18,11 +24,18 @@ fn gemm_nn(m: usize, n: usize, k: usize, alpha: f32,
     }
 }
 
-fn gemm_nt(m: usize, n: usize, k: usize, alpha: f32, 
-           a: &[f32], lda: usize, 
-           b: &[f32], ldb: usize,
-           c: &mut [f32], ldc: usize)
-{
+fn gemm_nt(
+    m: usize,
+    n: usize,
+    k: usize,
+    alpha: f32,
+    a: &[f32],
+    lda: usize,
+    b: &[f32],
+    ldb: usize,
+    c: &mut [f32],
+    ldc: usize,
+) {
     let a = &a[0..m * k];
     let b = &b[0..n * k];
     let c = &mut c[0..m * n];
@@ -40,11 +53,18 @@ fn gemm_nt(m: usize, n: usize, k: usize, alpha: f32,
     }
 }
 
-fn gemm_tn(m: usize, n: usize, k: usize, alpha: f32, 
-           a: &[f32], lda: usize, 
-           b: &[f32], ldb: usize,
-           c: &mut [f32], ldc: usize)
-{    
+fn gemm_tn(
+    m: usize,
+    n: usize,
+    k: usize,
+    alpha: f32,
+    a: &[f32],
+    lda: usize,
+    b: &[f32],
+    ldb: usize,
+    c: &mut [f32],
+    ldc: usize,
+) {
     let a = &a[0..m * k];
     let b = &b[0..n * k];
     let c = &mut c[0..m * n];
@@ -60,19 +80,26 @@ fn gemm_tn(m: usize, n: usize, k: usize, alpha: f32,
     }
 }
 
-fn gemm_tt(m: usize, n: usize, k: usize, alpha: f32, 
-           a: &[f32], lda: usize, 
-           b: &[f32], ldb: usize,
-           c: &mut [f32], ldc: usize)
-{
+fn gemm_tt(
+    m: usize,
+    n: usize,
+    k: usize,
+    alpha: f32,
+    a: &[f32],
+    lda: usize,
+    b: &[f32],
+    ldb: usize,
+    c: &mut [f32],
+    ldc: usize,
+) {
     let a = &a[0..m * k];
     let b = &b[0..n * k];
     let c = &mut c[0..m * n];
-    
+
     for i_m in 0..m {
         for i_n in 0..n {
             let mut sum = 0.0;
-            
+
             for i_k in 0..k {
                 sum += alpha * a[i_k * lda + i_m] * b[i_n * ldb + i_k];
             }
@@ -82,11 +109,21 @@ fn gemm_tt(m: usize, n: usize, k: usize, alpha: f32,
     }
 }
 
-pub fn gemm(ta: bool, tb: bool, m: usize, n: usize, k: usize, alpha: f32, 
-        a: &[f32], lda: usize, 
-        b: &[f32], ldb: usize, beta: f32,
-        c: &mut [f32], ldc: usize)
-{
+pub fn gemm(
+    ta: bool,
+    tb: bool,
+    m: usize,
+    n: usize,
+    k: usize,
+    alpha: f32,
+    a: &[f32],
+    lda: usize,
+    b: &[f32],
+    ldb: usize,
+    beta: f32,
+    c: &mut [f32],
+    ldc: usize,
+) {
     for i in 0..m {
         for j in 0..n {
             c[i * ldc + j] *= beta;

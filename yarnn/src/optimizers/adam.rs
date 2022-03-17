@@ -1,12 +1,12 @@
 use crate::backend::{Backend, BackendAdam};
 use crate::optimizer::{Optimizer, OptimizerContext};
 use crate::tensor::{Tensor, TensorShape};
-use core::marker::PhantomData;
 use core::cell::Cell;
+use core::marker::PhantomData;
 
-
-pub struct AdamContext<N, B> 
-    where B: Backend<N>
+pub struct AdamContext<N, B>
+where
+    B: Backend<N>,
 {
     moms: B::Tensor,
     vels: B::Tensor,
@@ -34,11 +34,12 @@ pub struct Adam<N, B: Backend<N>> {
     epsilon: Option<f32>,
     amsgrad: bool,
     iteration: Cell<f32>,
-    _m: PhantomData<fn(N, B)>,   
+    _m: PhantomData<fn(N, B)>,
 }
 
-impl<N, B> Default for Adam<N, B> 
-    where B: Backend<N>
+impl<N, B> Default for Adam<N, B>
+where
+    B: Backend<N>,
 {
     fn default() -> Self {
         Self {
@@ -70,12 +71,19 @@ impl<N, B: Backend<N>> Adam<N, B> {
 impl<N, B: Backend<N> + BackendAdam<N>> Optimizer<N, B> for Adam<N, B> {
     type Context = AdamContext<N, B>;
 
-    fn update_params(&self, backend: &B, ctx: &mut Self::Context, params: &mut B::Tensor, grads: &mut B::Tensor) {
+    fn update_params(
+        &self,
+        backend: &B,
+        ctx: &mut Self::Context,
+        params: &mut B::Tensor,
+        grads: &mut B::Tensor,
+    ) {
         let iter = self.iteration.get();
         let t = iter + 1.0;
         self.iteration.set(iter + 0.25);
 
-        let lr_t = self.learning_rate * ((1.0 - self.beta_2.powf(t)).sqrt() / (1.0 - self.beta_1.powf(t)));
+        let lr_t =
+            self.learning_rate * ((1.0 - self.beta_2.powf(t)).sqrt() / (1.0 - self.beta_1.powf(t)));
 
         // m_t = (self.beta_1 * m) + (1. - self.beta_1) * g;
         backend.scale(&mut ctx.moms, backend.scalar_f32(self.beta_1));
@@ -87,10 +95,22 @@ impl<N, B: Backend<N> + BackendAdam<N>> Optimizer<N, B> for Adam<N, B> {
 
         if self.amsgrad {
             backend.maximum(&mut ctx.vhats, &ctx.vels);
-            backend.adam_p(params, backend.scalar_f32(-lr_t), &ctx.moms, &ctx.vhats, backend.scalar_f32(self.epsilon.unwrap_or(core::f32::EPSILON)));
+            backend.adam_p(
+                params,
+                backend.scalar_f32(-lr_t),
+                &ctx.moms,
+                &ctx.vhats,
+                backend.scalar_f32(self.epsilon.unwrap_or(core::f32::EPSILON)),
+            );
         } else {
             // p_t = p - lr_t * m_t / (K.sqrt(v_t) + self.epsilon)
-            backend.adam_p(params, backend.scalar_f32(-lr_t), &ctx.moms, &ctx.vels, backend.scalar_f32(self.epsilon.unwrap_or(core::f32::EPSILON)));
+            backend.adam_p(
+                params,
+                backend.scalar_f32(-lr_t),
+                &ctx.moms,
+                &ctx.vels,
+                backend.scalar_f32(self.epsilon.unwrap_or(core::f32::EPSILON)),
+            );
         }
     }
 }

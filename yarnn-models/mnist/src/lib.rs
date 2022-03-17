@@ -1,11 +1,11 @@
 #![feature(trait_alias)]
 
-pub use self::dense::MnistDenseModel;
 pub use self::conv::MnistConvModel;
+pub use self::dense::MnistDenseModel;
 
 mod dense {
-    use yarnn::model;
     use yarnn::layers::*;
+    use yarnn::model;
 
     model! {
         MnistDenseModel (h: u32, w: u32, _c: u32) {
@@ -25,11 +25,10 @@ mod dense {
     }
 }
 
-
 mod conv {
-    use yarnn::model;
     use yarnn::layers::*;
-    
+    use yarnn::model;
+
     model! {
         MnistConvModel (h: u32, w: u32, c: u32) {
             input_shape: (c, h, w),

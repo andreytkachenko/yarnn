@@ -1,5 +1,4 @@
-use crate::tensor::{Tensor};
-
+use crate::tensor::Tensor;
 
 pub trait Backend<N> {
     type Tensor: Tensor<N>;
@@ -13,22 +12,22 @@ pub trait Backend<N> {
     fn print_tensor(&self, t: &Self::Tensor);
 }
 
-impl <'a, N, T: Backend<N>> Backend<N> for &'a T {
+impl<'a, N, T: Backend<N>> Backend<N> for &'a T {
     type Tensor = T::Tensor;
 
     #[inline]
     fn store_tensor_f32(&self, dst: &Self::Tensor, slice: &mut [f32]) {
-         (**self).store_tensor_f32(dst, slice)
+        (**self).store_tensor_f32(dst, slice)
     }
 
     #[inline]
     fn load_tensor_u8(&self, dst: &mut Self::Tensor, slice: &[u8]) {
-         (**self).load_tensor_u8(dst, slice)
+        (**self).load_tensor_u8(dst, slice)
     }
 
     #[inline]
     fn load_tensor_f32(&self, dst: &mut Self::Tensor, slice: &[f32]) {
-         (**self).load_tensor_f32(dst, slice)
+        (**self).load_tensor_f32(dst, slice)
     }
 
     #[inline]
@@ -59,7 +58,7 @@ pub trait BackendGemm<N>: Backend<N> {
     fn matmul_tt(&self, dst: &mut Self::Tensor, a: &Self::Tensor, b: &Self::Tensor);
 }
 
-impl <'a, N, T: BackendGemm<N>> BackendGemm<N> for &'a T {
+impl<'a, N, T: BackendGemm<N>> BackendGemm<N> for &'a T {
     #[inline]
     fn matmul(&self, dst: &mut Self::Tensor, a: &Self::Tensor, b: &Self::Tensor) {
         (**self).matmul(dst, a, b)
@@ -86,7 +85,7 @@ pub trait BackendBias<N>: Backend<N> {
     fn bias_grad(&self, bias: &mut Self::Tensor, inputs: &Self::Tensor);
 }
 
-impl <'a, N, T: BackendBias<N>> BackendBias<N> for &'a T {
+impl<'a, N, T: BackendBias<N>> BackendBias<N> for &'a T {
     #[inline]
     fn bias_add(&self, dst: &mut Self::Tensor, bias: &Self::Tensor) {
         (**self).bias_add(dst, bias)
@@ -103,7 +102,7 @@ pub trait BackendSigmoid<N>: Backend<N> {
     fn sigmoid_grad(&self, dst: &mut Self::Tensor, z: &Self::Tensor, d: &Self::Tensor);
 }
 
-impl <'a, N, T: BackendSigmoid<N>> BackendSigmoid<N> for &'a T {
+impl<'a, N, T: BackendSigmoid<N>> BackendSigmoid<N> for &'a T {
     #[inline]
     fn sigmoid(&self, dst: &mut Self::Tensor, data: &Self::Tensor) {
         (**self).sigmoid(dst, data)
@@ -115,13 +114,12 @@ impl <'a, N, T: BackendSigmoid<N>> BackendSigmoid<N> for &'a T {
     }
 }
 
-
 pub trait BackendReLu<N>: Backend<N> {
     fn relu(&self, dst: &mut Self::Tensor, data: &Self::Tensor);
     fn relu_grad(&self, dst: &mut Self::Tensor, z: &Self::Tensor, d: &Self::Tensor);
 }
 
-impl <'a, N, T: BackendReLu<N>> BackendReLu<N> for &'a T {
+impl<'a, N, T: BackendReLu<N>> BackendReLu<N> for &'a T {
     #[inline]
     fn relu(&self, dst: &mut Self::Tensor, data: &Self::Tensor) {
         (**self).relu(dst, data)
@@ -137,7 +135,7 @@ pub trait BackendScale<N>: Backend<N> {
     fn scale(&self, dst: &mut Self::Tensor, scale: N);
 }
 
-impl <'a, N, T: BackendScale<N>> BackendScale<N> for &'a T {
+impl<'a, N, T: BackendScale<N>> BackendScale<N> for &'a T {
     #[inline]
     fn scale(&self, dst: &mut Self::Tensor, scale: N) {
         (**self).scale(dst, scale)
@@ -145,13 +143,25 @@ impl <'a, N, T: BackendScale<N>> BackendScale<N> for &'a T {
 }
 
 pub trait BackendMse<N>: Backend<N> {
-    fn scaled_square_diff(&self, dst: &mut Self::Tensor, a: &Self::Tensor, b: &Self::Tensor, scale: N);
+    fn scaled_square_diff(
+        &self,
+        dst: &mut Self::Tensor,
+        a: &Self::Tensor,
+        b: &Self::Tensor,
+        scale: N,
+    );
     fn scaled_diff(&self, dst: &mut Self::Tensor, a: &Self::Tensor, b: &Self::Tensor, scale: N);
 }
 
-impl <'a, N, T: BackendMse<N>> BackendMse<N> for &'a T {
+impl<'a, N, T: BackendMse<N>> BackendMse<N> for &'a T {
     #[inline]
-    fn scaled_square_diff(&self, dst: &mut Self::Tensor, a: &Self::Tensor, b: &Self::Tensor, scale: N) {
+    fn scaled_square_diff(
+        &self,
+        dst: &mut Self::Tensor,
+        a: &Self::Tensor,
+        b: &Self::Tensor,
+        scale: N,
+    ) {
         (**self).scaled_square_diff(dst, a, b, scale)
     }
 
@@ -165,7 +175,7 @@ pub trait BackendAxpy<N>: Backend<N> {
     fn axpy(&self, dst: &mut Self::Tensor, scale: N, a: &Self::Tensor);
 }
 
-impl <'a, N, T: BackendAxpy<N>> BackendAxpy<N> for &'a T {
+impl<'a, N, T: BackendAxpy<N>> BackendAxpy<N> for &'a T {
     #[inline]
     fn axpy(&self, dst: &mut Self::Tensor, scale: N, a: &Self::Tensor) {
         (**self).axpy(dst, scale, a)
@@ -176,7 +186,7 @@ pub trait BackendAxpys<N>: Backend<N> {
     fn axpys(&self, dst: &mut Self::Tensor, scale: N, a: &Self::Tensor);
 }
 
-impl <'a, N, T: BackendAxpys<N>> BackendAxpys<N> for &'a T {
+impl<'a, N, T: BackendAxpys<N>> BackendAxpys<N> for &'a T {
     #[inline]
     fn axpys(&self, dst: &mut Self::Tensor, scale: N, a: &Self::Tensor) {
         (**self).axpys(dst, scale, a)
@@ -187,7 +197,7 @@ pub trait BackendAdd<N>: Backend<N> {
     fn add(&self, dst: &mut Self::Tensor, a: &Self::Tensor);
 }
 
-impl <'a, N, T: BackendAdd<N>> BackendAdd<N> for &'a T {
+impl<'a, N, T: BackendAdd<N>> BackendAdd<N> for &'a T {
     #[inline]
     fn add(&self, dst: &mut Self::Tensor, a: &Self::Tensor) {
         (**self).add(dst, a)
@@ -198,7 +208,7 @@ pub trait BackendSub<N>: Backend<N> {
     fn sub(&self, dst: &mut Self::Tensor, a: &Self::Tensor, b: &Self::Tensor);
 }
 
-impl <'a, N, T: BackendSub<N>> BackendSub<N> for &'a T {
+impl<'a, N, T: BackendSub<N>> BackendSub<N> for &'a T {
     #[inline]
     fn sub(&self, dst: &mut Self::Tensor, a: &Self::Tensor, b: &Self::Tensor) {
         (**self).sub(dst, a, b)
@@ -209,7 +219,7 @@ pub trait BackendMul<N>: Backend<N> {
     fn mul(&self, dst: &mut Self::Tensor, a: &Self::Tensor);
 }
 
-impl <'a, N, T: BackendMul<N>> BackendMul<N> for &'a T {
+impl<'a, N, T: BackendMul<N>> BackendMul<N> for &'a T {
     #[inline]
     fn mul(&self, dst: &mut Self::Tensor, a: &Self::Tensor) {
         (**self).mul(dst, a)
@@ -220,7 +230,7 @@ pub trait BackendCopy<N>: Backend<N> {
     fn copy(&self, dst: &mut Self::Tensor, a: &Self::Tensor);
 }
 
-impl <'a, N, T: BackendCopy<N>> BackendCopy<N> for &'a T {
+impl<'a, N, T: BackendCopy<N>> BackendCopy<N> for &'a T {
     #[inline]
     fn copy(&self, dst: &mut Self::Tensor, a: &Self::Tensor) {
         (**self).copy(dst, a)
@@ -231,20 +241,36 @@ pub trait BackendMaximum<N>: Backend<N> {
     fn maximum(&self, dst: &mut Self::Tensor, a: &Self::Tensor);
 }
 
-impl <'a, N, T: BackendMaximum<N>> BackendMaximum<N> for &'a T {
+impl<'a, N, T: BackendMaximum<N>> BackendMaximum<N> for &'a T {
     #[inline]
     fn maximum(&self, dst: &mut Self::Tensor, a: &Self::Tensor) {
         (**self).maximum(dst, a)
     }
 }
 
-pub trait BackendAdam<N>: BackendScale<N> + BackendAxpy<N> + BackendAxpys<N> + BackendMaximum<N> {
-    fn adam_p(&self, dst: &mut Self::Tensor, lr: N, moms: &Self::Tensor, vels: &Self::Tensor, eps: N);
+pub trait BackendAdam<N>:
+    BackendScale<N> + BackendAxpy<N> + BackendAxpys<N> + BackendMaximum<N>
+{
+    fn adam_p(
+        &self,
+        dst: &mut Self::Tensor,
+        lr: N,
+        moms: &Self::Tensor,
+        vels: &Self::Tensor,
+        eps: N,
+    );
 }
 
-impl <'a, N, T: BackendAdam<N>> BackendAdam<N> for &'a T {
+impl<'a, N, T: BackendAdam<N>> BackendAdam<N> for &'a T {
     #[inline]
-    fn adam_p(&self, dst: &mut Self::Tensor, lr: N, moms: &Self::Tensor, vels: &Self::Tensor, eps: N) {
+    fn adam_p(
+        &self,
+        dst: &mut Self::Tensor,
+        lr: N,
+        moms: &Self::Tensor,
+        vels: &Self::Tensor,
+        eps: N,
+    ) {
         (**self).adam_p(dst, lr, moms, vels, eps)
     }
 }
@@ -253,7 +279,7 @@ pub trait BackendSoftmax<N>: BackendCopy<N> {
     fn softmax(&self, y: &mut Self::Tensor, x: &Self::Tensor);
 }
 
-impl <'a, N, T: BackendSoftmax<N>> BackendSoftmax<N> for &'a T {
+impl<'a, N, T: BackendSoftmax<N>> BackendSoftmax<N> for &'a T {
     #[inline]
     fn softmax(&self, y: &mut Self::Tensor, x: &Self::Tensor) {
         (**self).softmax(y, x)
@@ -269,7 +295,7 @@ pub enum PaddingKind {
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct Conv2dInfo {
-    pub padding: PaddingKind, 
+    pub padding: PaddingKind,
     pub strides: (u32, u32),
     pub kernel: (u32, u32),
 }
@@ -277,26 +303,62 @@ pub struct Conv2dInfo {
 pub trait BackendConv2d<N>: Backend<N> {
     type Context;
 
-    fn conv2d_forward(&self, y: &mut Self::Tensor, x: &Self::Tensor, filter: &Self::Tensor, conv_info: &Conv2dInfo);
-    fn conv2d_backward_input(&self, dx: &mut Self::Tensor, dy: &Self::Tensor, filter: &Self::Tensor, conv_info: &Conv2dInfo);
-    fn conv2d_backward_filter(&self, dw: &mut Self::Tensor, x: &Self::Tensor, dy: &Self::Tensor, conv_info: &Conv2dInfo);
+    fn conv2d_forward(
+        &self,
+        y: &mut Self::Tensor,
+        x: &Self::Tensor,
+        filter: &Self::Tensor,
+        conv_info: &Conv2dInfo,
+    );
+    fn conv2d_backward_input(
+        &self,
+        dx: &mut Self::Tensor,
+        dy: &Self::Tensor,
+        filter: &Self::Tensor,
+        conv_info: &Conv2dInfo,
+    );
+    fn conv2d_backward_filter(
+        &self,
+        dw: &mut Self::Tensor,
+        x: &Self::Tensor,
+        dy: &Self::Tensor,
+        conv_info: &Conv2dInfo,
+    );
 }
 
-impl <'a, N, T: BackendConv2d<N>> BackendConv2d<N> for &'a T {
+impl<'a, N, T: BackendConv2d<N>> BackendConv2d<N> for &'a T {
     type Context = ();
-    
+
     #[inline]
-    fn conv2d_forward(&self, y: &mut Self::Tensor, x: &Self::Tensor, filters: &Self::Tensor, conv_info: &Conv2dInfo) {
+    fn conv2d_forward(
+        &self,
+        y: &mut Self::Tensor,
+        x: &Self::Tensor,
+        filters: &Self::Tensor,
+        conv_info: &Conv2dInfo,
+    ) {
         (**self).conv2d_forward(y, x, filters, conv_info)
     }
-    
+
     #[inline]
-    fn conv2d_backward_input(&self, dx: &mut Self::Tensor, dy: &Self::Tensor, filters: &Self::Tensor, conv_info: &Conv2dInfo) {
+    fn conv2d_backward_input(
+        &self,
+        dx: &mut Self::Tensor,
+        dy: &Self::Tensor,
+        filters: &Self::Tensor,
+        conv_info: &Conv2dInfo,
+    ) {
         (**self).conv2d_backward_input(dx, dy, filters, conv_info)
     }
-    
+
     #[inline]
-    fn conv2d_backward_filter(&self, dw: &mut Self::Tensor, x: &Self::Tensor, dy: &Self::Tensor, conv_info: &Conv2dInfo) {
+    fn conv2d_backward_filter(
+        &self,
+        dw: &mut Self::Tensor,
+        x: &Self::Tensor,
+        dy: &Self::Tensor,
+        conv_info: &Conv2dInfo,
+    ) {
         (**self).conv2d_forward(dw, x, dy, conv_info)
     }
 }
@@ -309,45 +371,81 @@ pub enum PoolingKind {
 
 pub trait BackendMaxPool2d<N>: Backend<N> {
     fn max_pool2d(&self, y: &mut Self::Tensor, x: &Self::Tensor, conv_info: &Conv2dInfo);
-    fn max_pool2d_backprop(&self, dx: &mut Self::Tensor, dy: &Self::Tensor, x: &Self::Tensor, conv_info: &Conv2dInfo);
+    fn max_pool2d_backprop(
+        &self,
+        dx: &mut Self::Tensor,
+        dy: &Self::Tensor,
+        x: &Self::Tensor,
+        conv_info: &Conv2dInfo,
+    );
 }
 
-impl <'a, N, T: BackendMaxPool2d<N>> BackendMaxPool2d<N> for &'a T {
+impl<'a, N, T: BackendMaxPool2d<N>> BackendMaxPool2d<N> for &'a T {
     #[inline]
     fn max_pool2d(&self, y: &mut Self::Tensor, x: &Self::Tensor, conv_info: &Conv2dInfo) {
         (**self).max_pool2d(y, x, conv_info)
     }
-    
+
     #[inline]
-    fn max_pool2d_backprop(&self, dx: &mut Self::Tensor, dy: &Self::Tensor, x: &Self::Tensor, conv_info: &Conv2dInfo) {
+    fn max_pool2d_backprop(
+        &self,
+        dx: &mut Self::Tensor,
+        dy: &Self::Tensor,
+        x: &Self::Tensor,
+        conv_info: &Conv2dInfo,
+    ) {
         (**self).max_pool2d_backprop(dx, dy, x, conv_info)
     }
 }
 
 pub trait BackendAvgPool2d<N>: Backend<N> {
     fn avg_pool2d(&self, y: &mut Self::Tensor, x: &Self::Tensor, conv_info: &Conv2dInfo);
-    fn avg_pool2d_backprop(&self, dx: &mut Self::Tensor, dy: &Self::Tensor, x: &Self::Tensor, conv_info: &Conv2dInfo);
+    fn avg_pool2d_backprop(
+        &self,
+        dx: &mut Self::Tensor,
+        dy: &Self::Tensor,
+        x: &Self::Tensor,
+        conv_info: &Conv2dInfo,
+    );
 }
 
-impl <'a, N, T: BackendAvgPool2d<N>> BackendAvgPool2d<N> for &'a T {
+impl<'a, N, T: BackendAvgPool2d<N>> BackendAvgPool2d<N> for &'a T {
     #[inline]
     fn avg_pool2d(&self, y: &mut Self::Tensor, x: &Self::Tensor, conv_info: &Conv2dInfo) {
         (**self).avg_pool2d(y, x, conv_info)
     }
-    
+
     #[inline]
-    fn avg_pool2d_backprop(&self, dx: &mut Self::Tensor, dy: &Self::Tensor, x: &Self::Tensor, conv_info: &Conv2dInfo) {
+    fn avg_pool2d_backprop(
+        &self,
+        dx: &mut Self::Tensor,
+        dy: &Self::Tensor,
+        x: &Self::Tensor,
+        conv_info: &Conv2dInfo,
+    ) {
         (**self).avg_pool2d_backprop(dx, dy, x, conv_info)
     }
 }
 
 pub trait BackendPaddingCopy2d<N>: Backend<N> {
-    fn copy_with_padding2d(&self, y: &mut Self::Tensor, x: &Self::Tensor, y_paddings: (u32, u32), x_paddings: (u32, u32));
+    fn copy_with_padding2d(
+        &self,
+        y: &mut Self::Tensor,
+        x: &Self::Tensor,
+        y_paddings: (u32, u32),
+        x_paddings: (u32, u32),
+    );
 }
 
-impl <'a, N, T: BackendPaddingCopy2d<N>> BackendPaddingCopy2d<N> for &'a T {
+impl<'a, N, T: BackendPaddingCopy2d<N>> BackendPaddingCopy2d<N> for &'a T {
     #[inline]
-    fn copy_with_padding2d(&self, y: &mut Self::Tensor, x: &Self::Tensor, y_paddings: (u32, u32), x_paddings: (u32, u32)) {
+    fn copy_with_padding2d(
+        &self,
+        y: &mut Self::Tensor,
+        x: &Self::Tensor,
+        y_paddings: (u32, u32),
+        x_paddings: (u32, u32),
+    ) {
         (**self).copy_with_padding2d(y, x, y_paddings, x_paddings)
     }
 }

@@ -4,10 +4,10 @@ use crate::tensor::{Tensor, TensorShape};
 
 // use core::marker::PhantomData;
 
-
 pub trait Layer<N, B, O>
-    where B: Backend<N>,
-          O: Optimizer<N, B>
+where
+    B: Backend<N>,
+    O: Optimizer<N, B>,
 {
     type Context: LayerContext<N, B>;
 
@@ -15,7 +15,7 @@ pub trait Layer<N, B, O>
     fn param_count(&self) -> usize {
         0
     }
-    
+
     #[inline]
     fn init(&mut self, _backend: &B) {}
 
@@ -25,41 +25,58 @@ pub trait Layer<N, B, O>
     fn output_shape(&self) -> TensorShape {
         self.input_shape()
     }
-    
+
     fn forward(&self, backend: &B, x: &B::Tensor, ctx: &mut Self::Context);
     fn backward(&mut self, backend: &B, dy: &B::Tensor, x: &B::Tensor, ctx: &mut Self::Context);
 
     #[inline]
-    fn calc_gradients(&mut self, _backend: &B, _dy: &B::Tensor, _x: &B::Tensor, _ctx: &mut Self::Context) {}
+    fn calc_gradients(
+        &mut self,
+        _backend: &B,
+        _dy: &B::Tensor,
+        _x: &B::Tensor,
+        _ctx: &mut Self::Context,
+    ) {
+    }
 
     #[inline]
     fn optimize(&mut self, _backend: &B, _optimizer: &O) {}
 
     fn fmt(&self, f: &mut core::fmt::Formatter, padding: usize) -> core::fmt::Result {
-        writeln!(f, "{}{} -> {}[{}] -> {}", "".repeat(padding), self.input_shape(), self.name(), self.param_count(), self.output_shape())?;
+        writeln!(
+            f,
+            "{}{} -> {}[{}] -> {}",
+            "".repeat(padding),
+            self.input_shape(),
+            self.name(),
+            self.param_count(),
+            self.output_shape()
+        )?;
 
         Ok(())
     }
 }
 
 pub trait LayerExt<N, B, O>: Layer<N, B, O>
-    where B: Backend<N>,
-          O: Optimizer<N, B>
+where
+    B: Backend<N>,
+    O: Optimizer<N, B>,
 {
     type Config: Default;
 
     fn create(input_shape: TensorShape, cfg: Self::Config) -> Self;
 
     #[inline]
-    fn add_layer<L: LayerExt<N, B, O>>(self, cfg: L::Config) -> crate::layers::Chain<N, B, O, Self, L> 
-        where Self: Sized
+    fn add_layer<L: LayerExt<N, B, O>>(
+        self,
+        cfg: L::Config,
+    ) -> crate::layers::Chain<N, B, O, Self, L>
+    where
+        Self: Sized,
     {
         let shape = self.output_shape();
 
-        crate::layers::Chain::new(
-            self,
-            L::create(shape, cfg),
-        )
+        crate::layers::Chain::new(self, L::create(shape, cfg))
     }
 }
 
@@ -68,16 +85,17 @@ pub trait LayerContext<N, B: Backend<N>>: Default {
     fn deltas(&self) -> &B::Tensor;
 }
 
-
-pub struct DefaultLayerContext<N, B> 
-    where B: Backend<N>,
+pub struct DefaultLayerContext<N, B>
+where
+    B: Backend<N>,
 {
     pub outputs: B::Tensor,
     pub deltas: B::Tensor,
 }
 
-impl <N, B> Default for DefaultLayerContext<N, B> 
-    where B: Backend<N>,
+impl<N, B> Default for DefaultLayerContext<N, B>
+where
+    B: Backend<N>,
 {
     fn default() -> Self {
         Self {
@@ -87,8 +105,9 @@ impl <N, B> Default for DefaultLayerContext<N, B>
     }
 }
 
-impl <N, B> DefaultLayerContext<N, B> 
-    where B: Backend<N>,
+impl<N, B> DefaultLayerContext<N, B>
+where
+    B: Backend<N>,
 {
     pub fn update_deltas_shape(&mut self, bs: u32, input_shape: &TensorShape) {
         let mut new_deltas_shape = TensorShape::new1d(bs);
@@ -110,8 +129,9 @@ impl <N, B> DefaultLayerContext<N, B>
     }
 }
 
-impl <N, B> LayerContext<N, B> for DefaultLayerContext<N, B>
-    where B: Backend<N>,
+impl<N, B> LayerContext<N, B> for DefaultLayerContext<N, B>
+where
+    B: Backend<N>,
 {
     #[inline]
     fn outputs(&self) -> &B::Tensor {

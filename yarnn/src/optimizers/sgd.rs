@@ -1,11 +1,11 @@
-use crate::backend::{Backend, BackendScale, BackendAxpy, BackendAdd};
+use crate::backend::{Backend, BackendAdd, BackendAxpy, BackendScale};
 use crate::optimizer::{Optimizer, OptimizerContext};
 use crate::tensor::{Tensor, TensorShape};
 use core::marker::PhantomData;
 
-
-pub struct SgdContext<N, B> 
-    where B: Backend<N>
+pub struct SgdContext<N, B>
+where
+    B: Backend<N>,
 {
     moments: B::Tensor,
     _m: PhantomData<fn(N, B)>,
@@ -24,11 +24,12 @@ pub struct Sgd<N, B: Backend<N>> {
     learning_rate: f32,
     momentum: f32,
     nesterov: bool,
-    _m: PhantomData<fn(N, B)>,   
+    _m: PhantomData<fn(N, B)>,
 }
 
-impl<N, B> Default for Sgd<N, B> 
-    where B: Backend<N>
+impl<N, B> Default for Sgd<N, B>
+where
+    B: Backend<N>,
 {
     fn default() -> Self {
         Self {
@@ -40,8 +41,9 @@ impl<N, B> Default for Sgd<N, B>
     }
 }
 
-impl<N, B> Sgd<N, B> 
-    where B: Backend<N>
+impl<N, B> Sgd<N, B>
+where
+    B: Backend<N>,
 {
     pub fn new(learning_rate: f32, momentum: f32, nesterov: bool) -> Self {
         Self {
@@ -53,13 +55,25 @@ impl<N, B> Sgd<N, B>
     }
 }
 
-impl<N, B: Backend<N> + BackendScale<N> + BackendAxpy<N> + BackendAdd<N>> Optimizer<N, B> for Sgd<N, B> {
+impl<N, B: Backend<N> + BackendScale<N> + BackendAxpy<N> + BackendAdd<N>> Optimizer<N, B>
+    for Sgd<N, B>
+{
     type Context = SgdContext<N, B>;
 
-    fn update_params(&self, backend: &B, ctx: &mut Self::Context, params: &mut B::Tensor, grads: &mut B::Tensor) {
+    fn update_params(
+        &self,
+        backend: &B,
+        ctx: &mut Self::Context,
+        params: &mut B::Tensor,
+        grads: &mut B::Tensor,
+    ) {
         // m = momentum * m - lr * grads
         backend.scale(&mut ctx.moments, backend.scalar_f32(self.momentum));
-        backend.axpy(&mut ctx.moments, backend.scalar_f32(-self.learning_rate), grads);
+        backend.axpy(
+            &mut ctx.moments,
+            backend.scalar_f32(-self.learning_rate),
+            grads,
+        );
 
         if self.nesterov {
             // p += momentum * m - lr * grads

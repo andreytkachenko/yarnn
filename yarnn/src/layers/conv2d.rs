@@ -1,8 +1,8 @@
-use crate::tensor::{Tensor, TensorShape};
-use crate::layer::{Layer, LayerExt, DefaultLayerContext};
-use crate::params::Params;
-use crate::backend::{Backend, Conv2dInfo, PaddingKind, BackendBias, BackendConv2d, BackendScale};
+use crate::backend::{Backend, BackendBias, BackendConv2d, BackendScale, Conv2dInfo, PaddingKind};
+use crate::layer::{DefaultLayerContext, Layer, LayerExt};
 use crate::optimizer::Optimizer;
+use crate::params::Params;
+use crate::tensor::{Tensor, TensorShape};
 
 pub struct Conv2dConfig {
     pub filters: u32,
@@ -24,9 +24,10 @@ impl Default for Conv2dConfig {
     }
 }
 
-pub struct Conv2d<N, B, O> 
-    where B: Backend<N>,
-          O: Optimizer<N, B>
+pub struct Conv2d<N, B, O>
+where
+    B: Backend<N>,
+    O: Optimizer<N, B>,
 {
     input_shape: TensorShape,
     units: u32,
@@ -36,9 +37,10 @@ pub struct Conv2d<N, B, O>
     biases: Params<N, B, O>,
 }
 
-impl <N, B, O> Layer<N, B, O> for Conv2d<N, B, O> 
-    where B: Backend<N> + BackendConv2d<N> + BackendBias<N> + BackendScale<N>,
-          O: Optimizer<N, B>
+impl<N, B, O> Layer<N, B, O> for Conv2d<N, B, O>
+where
+    B: Backend<N> + BackendConv2d<N> + BackendBias<N> + BackendScale<N>,
+    O: Optimizer<N, B>,
 {
     type Context = DefaultLayerContext<N, B>;
 
@@ -53,10 +55,13 @@ impl <N, B, O> Layer<N, B, O> for Conv2d<N, B, O>
         } else {
             self.filters.params.shape().size()
         }
-    } 
-    
+    }
+
     fn init(&mut self, backend: &B) {
-        self.filters.init_random(backend, self.conv_info.kernel.0 * self.conv_info.kernel.1 + self.filters.params.shape().get(0));
+        self.filters.init_random(
+            backend,
+            self.conv_info.kernel.0 * self.conv_info.kernel.1 + self.filters.params.shape().get(0),
+        );
 
         if self.use_biases {
             self.biases.init_zero(backend);
@@ -77,13 +82,9 @@ impl <N, B, O> Layer<N, B, O> for Conv2d<N, B, O>
         let rows = (is[1] - self.conv_info.kernel.0) / self.conv_info.strides.0 + 1;
         let cols = (is[2] - self.conv_info.kernel.1) / self.conv_info.strides.1 + 1;
 
-        TensorShape::new3d(
-            self.units,
-            rows,
-            cols,
-        )
+        TensorShape::new3d(self.units, rows, cols)
     }
-    
+
     #[inline]
     fn forward(&self, backend: &B, x: &B::Tensor, ctx: &mut Self::Context) {
         assert_eq!(x.shape().dims, 4);
@@ -101,14 +102,20 @@ impl <N, B, O> Layer<N, B, O> for Conv2d<N, B, O>
     #[inline]
     fn backward(&mut self, backend: &B, dy: &B::Tensor, x: &B::Tensor, ctx: &mut Self::Context) {
         assert_eq!(dy.shape().dims, 4);
-        
+
         ctx.update_deltas_shape(x.shape().get(0), &self.input_shape);
 
         backend.conv2d_backward_input(&mut ctx.deltas, dy, &self.filters.params, &self.conv_info);
     }
 
     #[inline]
-    fn calc_gradients(&mut self, backend: &B, dy: &B::Tensor, x: &B::Tensor, _ctx: &mut Self::Context) {
+    fn calc_gradients(
+        &mut self,
+        backend: &B,
+        dy: &B::Tensor,
+        x: &B::Tensor,
+        _ctx: &mut Self::Context,
+    ) {
         assert_eq!(dy.shape().dims, 4);
         assert_eq!(x.shape().dims, 4);
 
@@ -120,18 +127,24 @@ impl <N, B, O> Layer<N, B, O> for Conv2d<N, B, O>
 
     #[inline]
     fn optimize(&mut self, backend: &B, optimizer: &O) {
-        optimizer.update_params(backend, &mut self.filters.ctx, &mut self.filters.params, &mut self.filters.grads);
+        optimizer.update_params(
+            backend,
+            &mut self.filters.ctx,
+            &mut self.filters.params,
+            &mut self.filters.grads,
+        );
 
         if self.use_biases {
             unimplemented!()
-        //     optimizer.update_params(backend, &mut self.biases.ctx, &mut self.biases.params, &self.biases.grads);
+            //     optimizer.update_params(backend, &mut self.biases.ctx, &mut self.biases.params, &self.biases.grads);
         }
     }
 }
 
-impl <N, B, O> LayerExt<N, B, O> for Conv2d<N, B, O> 
-    where B: Backend<N> + BackendConv2d<N> + BackendBias<N> + BackendScale<N>,
-          O: Optimizer<N, B>
+impl<N, B, O> LayerExt<N, B, O> for Conv2d<N, B, O>
+where
+    B: Backend<N> + BackendConv2d<N> + BackendBias<N> + BackendScale<N>,
+    O: Optimizer<N, B>,
 {
     type Config = Conv2dConfig;
 
@@ -143,12 +156,12 @@ impl <N, B, O> LayerExt<N, B, O> for Conv2d<N, B, O>
             units: cfg.filters,
             conv_info: Conv2dInfo {
                 kernel: cfg.kernel,
-                padding: cfg.padding, 
+                padding: cfg.padding,
                 strides: cfg.strides,
             },
             use_biases: cfg.biases,
             filters: Params::new((cfg.filters, cfg.kernel.0, cfg.kernel.1)),
-            biases: Params::new((cfg.filters, )),
+            biases: Params::new((cfg.filters,)),
         }
     }
 }

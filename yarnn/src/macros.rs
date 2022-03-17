@@ -1,4 +1,3 @@
-
 #[macro_export]
 macro_rules! sequential_type {
     (input_shape: ($($shape:tt)*), layers: { $($layers:tt)* }) => {
@@ -11,13 +10,13 @@ macro_rules! sequential_type_impl {
     ($t:ty {$($tt:tt)*}) => ($t);
 
     ($t:ty {$($xx:tt)*}, $($tt:tt)*) => {
-        $crate::layers::Chain<N, B, O, 
+        $crate::layers::Chain<N, B, O,
             $t, $crate::sequential_type_impl!($($tt)*)
         >
     };
     ($t:ty) => ($t);
     ($t:ty, $($tt:tt)*) => {
-        $crate::layers::Chain<N, B, O, 
+        $crate::layers::Chain<N, B, O,
             $t, $crate::sequential_type_impl!($($tt)*)
         >
     };
@@ -33,7 +32,7 @@ macro_rules! sequential {
 }
 
 #[macro_export]
-macro_rules! sequential_impl {   
+macro_rules! sequential_impl {
     ($p:expr, $t:ty { $($name:ident : $val:expr),* }) => {{
         #[allow(unused_mut)]
         let mut params = <$t as $crate::layer::LayerExt<N, B, O>>::Config::default();
@@ -58,7 +57,7 @@ macro_rules! sequential_impl {
         );
 
         let prev_shape = $crate::layer::Layer::<N, B, O>::output_shape(&layer);
-        
+
         $crate::layers::Chain::new(
             layer, $crate::sequential_impl! { prev_shape, $($tt)* },
         )
@@ -119,7 +118,7 @@ macro_rules! model_impl {
             _m: core::marker::PhantomData<fn(N, B, O)>,
         }
 
-        impl<N, B, O> $name<N, B, O> 
+        impl<N, B, O> $name<N, B, O>
             where B: $crate::backend::Backend<N> + $trait,
                   O: $crate::optimizer::Optimizer<N, B>
         {
@@ -130,7 +129,7 @@ macro_rules! model_impl {
 
                 #[allow(unused_imports)]
                 use $crate::backend::PoolingKind::*;
-                
+
                 Self {
                     inner: $crate::sequential!($($tt)*),
                     _m: Default::default(),
@@ -138,7 +137,7 @@ macro_rules! model_impl {
             }
         }
 
-        // impl<N, B, O> core::fmt::Display for $name<N, B, O> 
+        // impl<N, B, O> core::fmt::Display for $name<N, B, O>
         //     where B: $crate::backend::Backend<N> + $trait,
         //           O: $crate::optimizer::Optimizer<N, B>
         // {
@@ -151,7 +150,7 @@ macro_rules! model_impl {
         //     }
         // }
 
-        impl<N, B, O> $crate::layer::Layer<N, B, O> for $name<N, B, O> 
+        impl<N, B, O> $crate::layer::Layer<N, B, O> for $name<N, B, O>
             where B: $crate::backend::Backend<N> + $trait,
                   O: $crate::optimizer::Optimizer<N, B>
         {
@@ -170,7 +169,7 @@ macro_rules! model_impl {
             #[inline]
             fn param_count(&self) -> usize {
                 self.inner.param_count()
-            } 
+            }
 
             #[inline]
             fn input_shape(&self) -> $crate::tensor::TensorShape {
@@ -206,12 +205,12 @@ macro_rules! model_impl {
                 writeln!(f, "{}{}[{}] {{",  "", self.name(), self.param_count())?;
                 self.inner.fmt(f, padding + 2)?;
                 write!(f, "}}")?;
-                
+
                 Ok(())
             }
         }
 
-        impl<N, B, O> core::fmt::Display for $name<N, B, O> 
+        impl<N, B, O> core::fmt::Display for $name<N, B, O>
             where B: $crate::backend::Backend<N> + $trait,
                   O: $crate::optimizer::Optimizer<N, B>
         {
@@ -227,7 +226,7 @@ macro_rules! model_impl {
 macro_rules! model {
     ($name:ident ($($init:tt)*) { $($tt:tt)* }) => {
         mod tmp {
-            pub trait BackendDefault<N> = $crate::backend::BackendReLu<N> 
+            pub trait BackendDefault<N> = $crate::backend::BackendReLu<N>
                   + $crate::backend::BackendBias<N>
                   + $crate::backend::BackendScale<N>
                   + $crate::backend::BackendSigmoid<N>
